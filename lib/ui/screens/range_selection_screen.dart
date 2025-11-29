@@ -126,31 +126,17 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
                         borderRadius: BorderRadius.circular(16),
                         decoration: const InputDecoration(labelText: 'سفر:'),
                         items: _books
-                            .map(
-                              (b) => DropdownMenuItem<int>(
-                                value: b['id'] as int,
-                                child: Text(b['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            )
+                            .map((b) => DropdownMenuItem<int>(
+                                  value: b['id'] as int,
+                                  child: Text(b['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ))
                             .toList(),
-                        onChanged: (val) async {
-                          if (val == null) return;
-                          setState(() {
-                            _selectedBookId = val;
-                            _selectedBookName =
-                                _books.firstWhere((b) => b['id'] == val, orElse: () => _books.first)['name'] as String;
-                          });
-                          await _ensureChapterInfo(val);
-                          if (!mounted) return;
-                          final totalChapters = _chaptersInfo[val] ?? 1;
-                          setState(() => _chapter = _chapter.clamp(1, totalChapters));
-                        },
+                        onChanged: (val) => setState(() {
+                          _selectedBookId = val;
+                          _selectedBookName = _books.firstWhere((b) => b['id'] == val)['name'] as String;
+                        }),
                       ),
                       const SizedBox(height: 12),
-                      if (_chaptersLoading) ...[
-                        const LinearProgressIndicator(minHeight: 2),
-                        const SizedBox(height: 12),
-                      ],
                       DropdownButtonFormField<int>(
                         value: selectedBookChapters == 0
                             ? null
@@ -220,10 +206,6 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
                         onPressed: _selectedBookId == null
                             ? null
                             : () async {
-                                if (!_chaptersInfo.containsKey(_selectedBookId!)) {
-                                  await _ensureChapterInfo(_selectedBookId!);
-                                  if (!mounted) return;
-                                }
                                 final verses =
                                     await _apiService.fetchChapterVerses(bookId: _selectedBookId!, chapter: _chapter);
                                 final maxVerse = verses.length;

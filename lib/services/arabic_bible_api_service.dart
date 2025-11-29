@@ -116,6 +116,11 @@ class ArabicBibleApiService {
                 decoded.values.firstWhere((v) => v is List<dynamic>, orElse: () => []) as List<dynamic>
             : [];
 
+    final filtered = data
+        .whereType<Map<String, dynamic>>()
+        .where((book) => !_excludedBooks.contains(book['name']))
+        .toList();
+
     final parsed = data.whereType<Map<String, dynamic>>().map(
           (book) => Book(
             id: book['id'].toString(),
