@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseClientProvider {
@@ -13,8 +14,16 @@ class SupabaseClientProvider {
   static Future<String?> ensureUser() async {
     final auth = client.auth;
     if (auth.currentUser != null) return auth.currentUser!.id;
-    final response = await auth.signInAnonymously();
-    return response.user?.id;
+    try {
+      final response = await auth.signInAnonymously();
+      return response.user?.id;
+    } on AuthException catch (e) {
+      debugPrint('Supabase auth error: ${e.message}');
+      return null;
+    } catch (e) {
+      debugPrint('Unexpected Supabase error: $e');
+      return null;
+    }
   }
 }
 
