@@ -30,8 +30,19 @@ class ArabicBibleApiService {
     final response = await _safeGet(uri);
     if (response == null) return [];
 
-    final data = jsonDecode(response) as List<dynamic>;
-    final filtered = data.where((book) => !_excludedBooks.contains(book['name'])).toList();
+    final decoded = jsonDecode(response);
+    final data = decoded is List
+        ? decoded
+        : decoded is Map<String, dynamic>
+            ? decoded['arr'] as List<dynamic>? ??
+                decoded['books'] as List<dynamic>? ??
+                decoded.values.firstWhere((v) => v is List<dynamic>, orElse: () => []) as List<dynamic>
+            : [];
+
+    final filtered = data
+        .whereType<Map<String, dynamic>>()
+        .where((book) => !_excludedBooks.contains(book['name']))
+        .toList();
 
     return filtered
         .map(
