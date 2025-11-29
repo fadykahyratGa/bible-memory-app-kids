@@ -32,6 +32,7 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
   int _toVerse = 1;
   late Difficulty _selectedDifficulty;
   bool _loading = true;
+  bool _chaptersLoading = false;
 
   @override
   void initState() {
@@ -70,6 +71,24 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
         _selectedBookName = _books.first['name'] as String;
       }
       _loading = false;
+    });
+
+    if (_selectedBookId != null && !_chaptersInfo.containsKey(_selectedBookId)) {
+      await _ensureChapterInfo(_selectedBookId!);
+    }
+  }
+
+  Future<void> _ensureChapterInfo(int bookId) async {
+    if (_chaptersInfo.containsKey(bookId)) return;
+    setState(() => _chaptersLoading = true);
+    final count = await _apiService.fetchBookChapterCount(bookId);
+    if (!mounted) return;
+    setState(() {
+      if (count != null) {
+        _chaptersInfo[bookId] = count;
+        _chapter = _chapter.clamp(1, count);
+      }
+      _chaptersLoading = false;
     });
   }
 
