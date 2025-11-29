@@ -52,7 +52,12 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
                 'chapters': b.chaptersCount,
               })
           .toList();
-      _chaptersInfo = chapters;
+      _chaptersInfo = chapters.isNotEmpty
+          ? chapters
+          : {
+              for (final book in _books)
+                book['id'] as int: book['chapters'] as int,
+            };
       if (widget.preselected != null) {
         _selectedBookId = widget.preselected!.book;
         _selectedBookName = widget.preselected!.bookName;
