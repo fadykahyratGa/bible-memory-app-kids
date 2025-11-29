@@ -107,18 +107,14 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
                         borderRadius: BorderRadius.circular(16),
                         decoration: const InputDecoration(labelText: 'سفر:'),
                         items: _books
-                            .map(
-                              (b) => DropdownMenuItem<int>(
-                                value: b['id'] as int,
-                                child: Text(b['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            )
+                            .map((b) => DropdownMenuItem<int>(
+                                  value: b['id'] as int,
+                                  child: Text(b['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ))
                             .toList(),
                         onChanged: (val) => setState(() {
                           _selectedBookId = val;
                           _selectedBookName = _books.firstWhere((b) => b['id'] == val)['name'] as String;
-                          final totalChapters = _chaptersInfo[_selectedBookId ?? 0] ?? 1;
-                          _chapter = _chapter.clamp(1, totalChapters).toInt();
                         }),
                       ),
                       const SizedBox(height: 12),
