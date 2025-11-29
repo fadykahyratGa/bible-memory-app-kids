@@ -1,10 +1,10 @@
 name: bible_memory_app_kids
 description: >
   احفظ كلمة الله - تطبيق تفاعلي للأطفال لحفظ آيات الكتاب المقدس باللغة العربية.
-publish_to: 'none'
+publish_to: "none"
 version: 1.0.0+1
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -16,8 +16,7 @@ dependencies:
   http: ^1.2.1
   supabase_flutter: ^2.5.4
   google_fonts: ^6.2.1
-  intl: ^0.19.0
-
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
