@@ -30,9 +30,11 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
   int _chapter = 1;
   int _fromVerse = 1;
   int _toVerse = 1;
+  int _versesInChapter = 0;
   late Difficulty _selectedDifficulty;
   bool _loading = true;
   bool _chaptersLoading = false;
+  bool _versesLoading = false;
 
   @override
   void initState() {
@@ -76,6 +78,7 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
     if (_selectedBookId != null && !_chaptersInfo.containsKey(_selectedBookId)) {
       await _ensureChapterInfo(_selectedBookId!);
     }
+    await _loadVersesCount();
   }
 
   Future<void> _ensureChapterInfo(int bookId) async {
@@ -89,6 +92,19 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
         _chapter = _chapter.clamp(1, count);
       }
       _chaptersLoading = false;
+    });
+  }
+
+  Future<void> _loadVersesCount() async {
+    if (_selectedBookId == null) return;
+    setState(() => _versesLoading = true);
+    final verses = await _apiService.fetchChapterVerses(bookId: _selectedBookId!, chapter: _chapter);
+    if (!mounted) return;
+    setState(() {
+      _versesInChapter = verses.length;
+      _fromVerse = _fromVerse.clamp(1, _versesInChapter == 0 ? 1 : _versesInChapter);
+      _toVerse = _toVerse.clamp(_fromVerse, _versesInChapter == 0 ? _fromVerse : _versesInChapter);
+      _versesLoading = false;
     });
   }
 
@@ -131,10 +147,20 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
                                   child: Text(b['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
                                 ))
                             .toList(),
-                        onChanged: (val) => setState(() {
-                          _selectedBookId = val;
-                          _selectedBookName = _books.firstWhere((b) => b['id'] == val)['name'] as String;
-                        }),
+                        onChanged: (val) async {
+                          if (val == null) return;
+                          setState(() {
+                            _selectedBookId = val;
+                            _selectedBookName =
+                                _books.firstWhere((b) => b['id'] == val)['name'] as String;
+                            _chapter = 1;
+                            _fromVerse = 1;
+                            _toVerse = 1;
+                            _versesInChapter = 0;
+                          });
+                          await _ensureChapterInfo(val);
+                          await _loadVersesCount();
+                        },
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<int>(
@@ -146,7 +172,10 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
                         items: List.generate(selectedBookChapters, (index) => index + 1)
                             .map((c) => DropdownMenuItem<int>(value: c, child: Text('$c')))
                             .toList(),
-                        onChanged: (val) => setState(() => _chapter = val ?? 1),
+                        onChanged: (val) async {
+                          setState(() => _chapter = val ?? 1);
+                          await _loadVersesCount();
+                        },
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -154,7 +183,11 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
                           Expanded(
                             child: TextFormField(
                               initialValue: '$_fromVerse',
-                              decoration: const InputDecoration(labelText: 'من عدد'),
+                              decoration: InputDecoration(
+                                labelText: 'من عدد',
+                                helperText:
+                                    _versesInChapter > 0 ? 'الحد الأقصى: $_versesInChapter' : null,
+                              ),
                               keyboardType: TextInputType.number,
                               onChanged: (val) => _fromVerse = int.tryParse(val) ?? 1,
                             ),
@@ -170,6 +203,12 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
                           ),
                         ],
                       ),
+                      if (_toVerse < _fromVerse)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Text('تأكد أن النهاية أكبر أو تساوي البداية',
+                              style: TextStyle(color: Colors.red)),
+                        ),
                       const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -203,12 +242,25 @@ class _RangeSelectionScreenState extends State<RangeSelectionScreen> {
                       const SizedBox(height: 16),
                       PrimaryButton(
                         label: 'انتقال',
-                        onPressed: _selectedBookId == null
+                        onPressed: _selectedBookId == null || _versesLoading
                             ? null
                             : () async {
-                                final verses =
-                                    await _apiService.fetchChapterVerses(bookId: _selectedBookId!, chapter: _chapter);
-                                final maxVerse = verses.length;
+                                if (_toVerse < _fromVerse) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('تأكد أن النهاية أكبر أو تساوي البداية')),
+                                  );
+                                  return;
+                                }
+                                if (_versesInChapter == 0) {
+                                  await _loadVersesCount();
+                                }
+                                if (_versesInChapter == 0) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('تعذر تحميل الأعداد لهذا الإصحاح')),
+                                  );
+                                  return;
+                                }
+                                final maxVerse = _versesInChapter;
                                 final from = _fromVerse.clamp(1, maxVerse);
                                 final to = _toVerse.clamp(from, maxVerse);
                                 final config = GameConfig(
