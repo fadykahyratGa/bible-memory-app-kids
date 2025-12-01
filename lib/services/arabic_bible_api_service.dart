@@ -12,6 +12,9 @@ class ArabicBibleApiService {
   static const _baseUrl = 'https://arabic-bible.onrender.com';
   final http.Client _client;
 
+  // Books to exclude from the API response if needed
+  static const Set<String> _excludedBooks = {};
+
   static const Map<int, String> _fallbackBooks = {
     1: "سفر التكوين",
     2: "سفر الخروج",
