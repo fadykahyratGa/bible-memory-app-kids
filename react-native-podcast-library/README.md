@@ -4,11 +4,13 @@ This folder contains a React Native (Expo) starter for the **My Podcast Library*
 
 - Favorite podcast management
 - Email/password login and registration
+- Google login (Supabase OAuth)
 - Most recent episode list per podcast
 - Per-user episode favorites, ratings, and hashtags
 - Search by hashtags across your own saved episode metadata
 - Admin panel for managing podcasts and profiles
 - Supabase-backed persistence + RLS
+- App-wide localization support (English/Arabic)
 
 > The app accepts only Christian podcasts when adding new Podbean URLs (validated from scraped podcast name keywords).
 
@@ -46,3 +48,4 @@ Set `profiles.is_admin = true` for the user in Supabase to unlock admin UI.
 - Remove podcast from favorites directly in the main list.
 - Episode rows sorted with favorites first, then higher-rated items, then recent publish date.
 - Search screen includes a Cancel button to return to main flow.
+- Improved folder structure by feature: `src/features/{auth,library,episodes,search,admin}`.

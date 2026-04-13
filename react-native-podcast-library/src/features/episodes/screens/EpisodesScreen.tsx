@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
-import { supabase } from '../lib/supabase';
-import { EpisodeWithMeta, fetchEpisodesWithMeta, upsertEpisodeMeta } from '../services/episodeService';
+import { RootStackParamList } from '../../../../App';
+import { supabase } from '../../../lib/supabase';
+import { EpisodeWithMeta, fetchEpisodesWithMeta, upsertEpisodeMeta } from '../../../services/episodeService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Episodes'>;
 

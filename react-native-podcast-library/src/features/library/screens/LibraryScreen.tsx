@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
-import { supabase } from '../lib/supabase';
-import { addFavoritePodcast, fetchFavoritePodcasts, Podcast, removeFavoritePodcast } from '../services/podcastService';
+import { RootStackParamList } from '../../../../App';
+import { supabase } from '../../../lib/supabase';
+import { addFavoritePodcast, fetchFavoritePodcasts, Podcast, removeFavoritePodcast } from '../../../services/podcastService';
+import { useLocalization } from '../../../localization/LocalizationProvider';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Library'>;
 
 export function LibraryScreen({ navigation }: Props): React.JSX.Element {
+  const { t, locale, setLocale } = useLocalization();
   const [podcasts, setPodcasts] = useState<Podcast[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [url, setUrl] = useState('');
@@ -26,7 +28,7 @@ export function LibraryScreen({ navigation }: Props): React.JSX.Element {
   const onSavePodcast = async (): Promise<void> => {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) {
-      Alert.alert('Authentication', 'Please sign in first.');
+      Alert.alert('Authentication', t('authRequired'));
       return;
     }
 
@@ -36,7 +38,7 @@ export function LibraryScreen({ navigation }: Props): React.JSX.Element {
       setModalOpen(false);
       await load();
     } catch (error: any) {
-      Alert.alert('Invalid podcast URL', error.message ?? 'Could not add podcast.');
+      Alert.alert(t('invalidPodcastUrl'), error.message ?? 'Could not add podcast.');
     }
   };
 
@@ -51,43 +53,34 @@ export function LibraryScreen({ navigation }: Props): React.JSX.Element {
   return (
     <View style={styles.container}>
       <View style={styles.actions}>
-        <Pressable onPress={() => setModalOpen(true)} style={styles.button}>
-          <Text style={styles.buttonText}>＋</Text>
-        </Pressable>
-        <Pressable onPress={() => navigation.navigate('Search')} style={styles.button}>
-          <Text style={styles.buttonText}>Search</Text>
-        </Pressable>
-        <Pressable onPress={() => navigation.navigate('Admin')} style={styles.button}>
-          <Text style={styles.buttonText}>Admin</Text>
-        </Pressable>
-        <Pressable onPress={() => supabase.auth.signOut()} style={styles.button}>
-          <Text style={styles.buttonText}>Logout</Text>
-        </Pressable>
+        <Pressable onPress={() => setModalOpen(true)} style={styles.button}><Text style={styles.buttonText}>＋</Text></Pressable>
+        <Pressable onPress={() => navigation.navigate('Search')} style={styles.button}><Text style={styles.buttonText}>{t('search')}</Text></Pressable>
+        <Pressable onPress={() => navigation.navigate('Admin')} style={styles.button}><Text style={styles.buttonText}>{t('admin')}</Text></Pressable>
+        <Pressable onPress={() => supabase.auth.signOut()} style={styles.button}><Text style={styles.buttonText}>{t('logout')}</Text></Pressable>
+      </View>
+
+      <View style={styles.localeRow}>
+        <Text style={styles.localeLabel}>{t('language')}:</Text>
+        <Pressable onPress={() => setLocale('en')}><Text style={locale === 'en' ? styles.localeActive : styles.localeLink}>{t('english')}</Text></Pressable>
+        <Pressable onPress={() => setLocale('ar')}><Text style={locale === 'ar' ? styles.localeActive : styles.localeLink}>{t('arabic')}</Text></Pressable>
       </View>
 
       {podcasts.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No podcasts added yet</Text>
-        </View>
+        <View style={styles.emptyState}><Text style={styles.emptyText}>{t('noPodcasts')}</Text></View>
       ) : (
         <FlatList
           data={podcasts}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={styles.row}>
-              <Pressable
-                style={styles.rowMain}
-                onPress={() => navigation.navigate('Episodes', { podcastId: item.id, podcastName: item.name })}
-              >
+              <Pressable style={styles.rowMain} onPress={() => navigation.navigate('Episodes', { podcastId: item.id, podcastName: item.name })}>
                 {item.icon_url ? <Image source={{ uri: item.icon_url }} style={styles.icon} /> : <View style={styles.icon} />}
                 <View style={styles.info}>
                   <Text style={styles.name}>{item.name}</Text>
-                  <Text style={styles.count}>{item.episode_count} recent episodes</Text>
+                  <Text style={styles.count}>{item.episode_count} {t('recentEpisodes')}</Text>
                 </View>
               </Pressable>
-              <Pressable onPress={() => onRemovePodcast(item.id)} style={styles.removeBtn}>
-                <Text style={styles.removeText}>✕</Text>
-              </Pressable>
+              <Pressable onPress={() => onRemovePodcast(item.id)} style={styles.removeBtn}><Text style={styles.removeText}>✕</Text></Pressable>
             </View>
           )}
         />
@@ -96,8 +89,8 @@ export function LibraryScreen({ navigation }: Props): React.JSX.Element {
       <Modal visible={modalOpen} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Add a new podcast</Text>
-            <Text style={styles.modalHint}>Christian podcasts only (Bible, Gospel, Church, Sermon...)</Text>
+            <Text style={styles.modalTitle}>{t('addPodcast')}</Text>
+            <Text style={styles.modalHint}>{t('christianOnlyHint')}</Text>
             <TextInput
               style={styles.input}
               autoCapitalize="none"
@@ -106,12 +99,8 @@ export function LibraryScreen({ navigation }: Props): React.JSX.Element {
               placeholder="https://www.podbean.com/podcast-detail/..."
             />
             <View style={styles.modalActions}>
-              <Pressable onPress={onSavePodcast} style={styles.button}>
-                <Text style={styles.buttonText}>Save</Text>
-              </Pressable>
-              <Pressable onPress={() => setModalOpen(false)} style={styles.button}>
-                <Text style={styles.buttonText}>Cancel</Text>
-              </Pressable>
+              <Pressable onPress={onSavePodcast} style={styles.button}><Text style={styles.buttonText}>{t('save')}</Text></Pressable>
+              <Pressable onPress={() => setModalOpen(false)} style={styles.button}><Text style={styles.buttonText}>{t('cancel')}</Text></Pressable>
             </View>
           </View>
         </View>
@@ -122,9 +111,13 @@ export function LibraryScreen({ navigation }: Props): React.JSX.Element {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  actions: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  actions: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   button: { backgroundColor: '#2f6fed', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 14 },
   buttonText: { color: '#fff', fontWeight: '700' },
+  localeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  localeLabel: { fontWeight: '700', color: '#374151' },
+  localeLink: { color: '#2563eb', fontWeight: '600' },
+  localeActive: { color: '#111827', fontWeight: '800' },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { color: '#a1a1aa', fontSize: 22, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderColor: '#eee' },

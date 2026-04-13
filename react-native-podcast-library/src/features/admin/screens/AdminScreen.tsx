@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../../lib/supabase';
+import { useLocalization } from '../../../localization/LocalizationProvider';
 
 type PodcastRow = { id: string; name: string; created_at: string };
 type ProfileRow = { id: string; is_admin: boolean };
 
 export function AdminScreen(): React.JSX.Element {
+  const { t } = useLocalization();
   const [isAdmin, setIsAdmin] = useState(false);
   const [podcasts, setPodcasts] = useState<PodcastRow[]>([]);
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
@@ -14,15 +16,9 @@ export function AdminScreen(): React.JSX.Element {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return;
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', auth.user.id)
-      .single();
-
+    const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', auth.user.id).single();
     const admin = profile?.is_admin === true;
     setIsAdmin(admin);
-
     if (!admin) return;
 
     const [podcastResult, profileResult] = await Promise.all([
@@ -49,11 +45,7 @@ export function AdminScreen(): React.JSX.Element {
   };
 
   if (!isAdmin) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.warning}>Admin access required.</Text>
-      </View>
-    );
+    return <View style={styles.center}><Text style={styles.warning}>{t('adminAccessRequired')}</Text></View>;
   }
 
   return (
@@ -63,16 +55,16 @@ export function AdminScreen(): React.JSX.Element {
       keyExtractor={(item) => item.id}
       ListHeaderComponent={
         <View style={styles.headerBlock}>
-          <Text style={styles.sectionTitle}>User Management</Text>
+          <Text style={styles.sectionTitle}>{t('userManagement')}</Text>
           {profiles.map((profile) => (
             <View style={styles.row} key={profile.id}>
               <Text style={styles.name}>{profile.id.slice(0, 8)}...</Text>
               <Pressable style={styles.toggleBtn} onPress={() => toggleAdmin(profile.id, profile.is_admin)}>
-                <Text style={styles.buttonText}>{profile.is_admin ? 'Revoke Admin' : 'Make Admin'}</Text>
+                <Text style={styles.buttonText}>{profile.is_admin ? t('revokeAdmin') : t('makeAdmin')}</Text>
               </Pressable>
             </View>
           ))}
-          <Text style={styles.sectionTitle}>Christian Podcast Management</Text>
+          <Text style={styles.sectionTitle}>{t('christianPodcastManagement')}</Text>
         </View>
       }
       renderItem={({ item }) => (
@@ -82,7 +74,7 @@ export function AdminScreen(): React.JSX.Element {
             <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
           </View>
           <Pressable style={styles.deleteBtn} onPress={() => deletePodcast(item.id)}>
-            <Text style={styles.buttonText}>Delete</Text>
+            <Text style={styles.buttonText}>{t('delete')}</Text>
           </Pressable>
         </View>
       )}
@@ -96,14 +88,7 @@ const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: '#fff' },
   headerBlock: { paddingTop: 8 },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginVertical: 8, paddingHorizontal: 12 },
-  row: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  row: { padding: 12, borderBottomWidth: 1, borderColor: '#eee', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   name: { fontWeight: '700', maxWidth: '70%' },
   date: { color: '#666', marginTop: 2 },
   deleteBtn: { backgroundColor: '#dc2626', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },

@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { supabase } from '../lib/supabase';
+import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { makeRedirectUri } from 'expo-auth-session';
+import { supabase } from '../../../lib/supabase';
+import { useLocalization } from '../../../localization/LocalizationProvider';
 
 export function AuthScreen(): React.JSX.Element {
+  const { t } = useLocalization();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +21,7 @@ export function AuthScreen(): React.JSX.Element {
   const submit = async (): Promise<void> => {
     const cleanEmail = email.trim();
     if (!cleanEmail || password.length < 6) {
-      Alert.alert('Validation', 'Enter a valid email and password (minimum 6 chars).');
+      Alert.alert('Validation', t('validationError'));
       return;
     }
 
@@ -28,48 +31,67 @@ export function AuthScreen(): React.JSX.Element {
         const { error } = await supabase.auth.signUp({ email: cleanEmail, password });
         if (error) throw error;
         await ensureProfile();
-        Alert.alert('Success', 'Registration complete. Please check your email if confirmation is enabled.');
+        Alert.alert('Success', t('successRegister'));
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
         if (error) throw error;
         await ensureProfile();
       }
     } catch (error: any) {
-      Alert.alert('Authentication error', error.message ?? 'Unable to authenticate');
+      Alert.alert(t('authenticationError'), error.message ?? 'Unable to authenticate');
     } finally {
       setLoading(false);
     }
   };
 
+  const loginWithGoogle = async (): Promise<void> => {
+    try {
+      const redirectTo = makeRedirectUri();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo, skipBrowserRedirect: true },
+      });
+
+      if (error) throw error;
+      if (data?.url) {
+        await Linking.openURL(data.url);
+      }
+    } catch (error: any) {
+      Alert.alert(t('authenticationError'), error.message ?? 'Google login failed');
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Christian Podcast Library</Text>
-      <Text style={styles.subtitle}>{isRegister ? 'Create account' : 'Login'}</Text>
+      <Text style={styles.title}>{t('appTitle')}</Text>
+      <Text style={styles.subtitle}>{isRegister ? t('createAccount') : t('login')}</Text>
 
       <TextInput
         style={styles.input}
         autoCapitalize="none"
         keyboardType="email-address"
-        placeholder="Email"
+        placeholder={t('email')}
         value={email}
         onChangeText={setEmail}
       />
       <TextInput
         style={styles.input}
         secureTextEntry
-        placeholder="Password"
+        placeholder={t('password')}
         value={password}
         onChangeText={setPassword}
       />
 
       <Pressable style={styles.primary} onPress={submit} disabled={loading}>
-        <Text style={styles.primaryText}>{loading ? 'Please wait...' : isRegister ? 'Register' : 'Login'}</Text>
+        <Text style={styles.primaryText}>{loading ? '...' : isRegister ? t('register') : t('login')}</Text>
+      </Pressable>
+
+      <Pressable style={styles.googleButton} onPress={loginWithGoogle}>
+        <Text style={styles.googleText}>{t('googleLogin')}</Text>
       </Pressable>
 
       <Pressable onPress={() => setIsRegister((prev) => !prev)}>
-        <Text style={styles.link}>
-          {isRegister ? 'Already have an account? Login' : "Don't have an account? Register"}
-        </Text>
+        <Text style={styles.link}>{isRegister ? t('haveAccount') : t('dontHaveAccount')}</Text>
       </Pressable>
     </View>
   );
@@ -92,8 +114,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     paddingVertical: 11,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   primaryText: { color: '#fff', fontWeight: '700' },
+  googleButton: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 10,
+    alignItems: 'center',
+    paddingVertical: 11,
+    marginBottom: 12,
+  },
+  googleText: { color: '#111827', fontWeight: '700' },
   link: { textAlign: 'center', color: '#2563eb', fontWeight: '600' },
 });

@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
-import { supabase } from '../lib/supabase';
+import { RootStackParamList } from '../../../../App';
+import { supabase } from '../../../lib/supabase';
+import { useLocalization } from '../../../localization/LocalizationProvider';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Search'>;
 type SearchResult = { id: string; title: string; hashtag: string | null; rating: number };
 
 export function SearchScreen({ navigation }: Props): React.JSX.Element {
+  const { t } = useLocalization();
   const [tag, setTag] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
 
@@ -28,14 +30,7 @@ export function SearchScreen({ navigation }: Props): React.JSX.Element {
 
     const mapped = (data ?? []).flatMap((row: any) =>
       row.episodes
-        ? [
-            {
-              id: row.episodes.id as string,
-              title: row.episodes.title as string,
-              hashtag: row.hashtag as string | null,
-              rating: row.rating as number,
-            },
-          ]
+        ? [{ id: row.episodes.id as string, title: row.episodes.title as string, hashtag: row.hashtag as string | null, rating: row.rating as number }]
         : [],
     );
 
@@ -46,9 +41,7 @@ export function SearchScreen({ navigation }: Props): React.JSX.Element {
     <View style={styles.container}>
       <View style={styles.row}>
         <TextInput style={styles.input} value={tag} onChangeText={setTag} placeholder="#bible #technology" />
-        <Pressable style={styles.button} onPress={onSearch}>
-          <Text style={styles.buttonText}>Search</Text>
-        </Pressable>
+        <Pressable style={styles.button} onPress={onSearch}><Text style={styles.buttonText}>{t('search')}</Text></Pressable>
       </View>
 
       <FlatList
@@ -62,9 +55,7 @@ export function SearchScreen({ navigation }: Props): React.JSX.Element {
         )}
       />
 
-      <Pressable style={[styles.button, styles.cancel]} onPress={() => navigation.goBack()}>
-        <Text style={styles.buttonText}>Cancel</Text>
-      </Pressable>
+      <Pressable style={[styles.button, styles.cancel]} onPress={() => navigation.goBack()}><Text style={styles.buttonText}>{t('cancel')}</Text></Pressable>
     </View>
   );
 }
