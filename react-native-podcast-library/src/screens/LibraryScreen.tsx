@@ -60,6 +60,9 @@ export function LibraryScreen({ navigation }: Props): React.JSX.Element {
         <Pressable onPress={() => navigation.navigate('Admin')} style={styles.button}>
           <Text style={styles.buttonText}>Admin</Text>
         </Pressable>
+        <Pressable onPress={() => supabase.auth.signOut()} style={styles.button}>
+          <Text style={styles.buttonText}>Logout</Text>
+        </Pressable>
       </View>
 
       {podcasts.length === 0 ? (

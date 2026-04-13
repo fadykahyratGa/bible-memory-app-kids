@@ -3,6 +3,7 @@
 This folder contains a React Native (Expo) starter for the **My Podcast Library** project with a **Christian podcast focus**:
 
 - Favorite podcast management
+- Email/password login and registration
 - Most recent episode list per podcast
 - Per-user episode favorites, ratings, and hashtags
 - Search by hashtags across your own saved episode metadata
