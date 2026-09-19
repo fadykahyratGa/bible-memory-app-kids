@@ -72,7 +72,9 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
       child: roomAsync.when(
         data: (room) {
           final isHost = room.hostUserId == currentUserId;
-          final canAdvance = isHost && activeGame != null && (activeGame.challengeEndsAt == null || DateTime.now().isAfter(activeGame.challengeEndsAt!));
+          final isAnsweringState = activeGame?.state == MultiplayerGameState.playing || activeGame?.state == MultiplayerGameState.answering;
+          final challengeExpired = activeGame?.challengeEndsAt != null && DateTime.now().isAfter(activeGame!.challengeEndsAt!);
+          final canAdvance = isHost && activeGame != null && (!isAnsweringState || challengeExpired);
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [

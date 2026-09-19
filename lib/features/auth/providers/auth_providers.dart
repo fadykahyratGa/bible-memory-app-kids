@@ -62,6 +62,9 @@ class AppSessionController extends ChangeNotifier {
         'restoreLocation': _restoreLocation,
       });
     } catch (error, stackTrace) {
+      _user = null;
+      _profile = null;
+      _restoreLocation = null;
       AppLogger.error('app.bootstrap.failed', error, <String, Object?>{'stackTrace': '$stackTrace'});
       _error = AppErrorMapper.map(error);
     } finally {

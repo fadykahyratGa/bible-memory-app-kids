@@ -29,6 +29,15 @@ class AppErrorMapper {
       if (message.contains('ROOM_STARTED')) {
         return AppException(code: 'room_started', userMessage: roomStartedMessage, debugMessage: error.message);
       }
+      if (message.contains('ROOM_FULL')) {
+        return AppException(code: 'room_full', userMessage: 'الغرفة مكتملة الآن ولا يمكن الانضمام.', debugMessage: error.message);
+      }
+      if (message.contains('INVALID_ROOM_CODE')) {
+        return AppException(code: 'invalid_room_code', userMessage: 'كود الغرفة غير صالح.', debugMessage: error.message);
+      }
+      if (message.contains('INVALID_DISPLAY_NAME')) {
+        return AppException(code: 'invalid_display_name', userMessage: 'الاسم غير صالح. استخدم اسمًا قصيرًا وواضحًا.', debugMessage: error.message);
+      }
       if (message.contains('NOT_HOST')) {
         return AppException(code: 'not_host', userMessage: 'فقط صاحب الغرفة يمكنه تنفيذ هذا الإجراء.', debugMessage: error.message);
       }

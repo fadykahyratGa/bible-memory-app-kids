@@ -12,7 +12,7 @@ $$;
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  display_name text not null,
+  display_name text not null check (char_length(btrim(display_name)) between 1 and 32),
   avatar_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -37,26 +37,30 @@ create table if not exists public.room_teams (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references public.rooms(id) on delete cascade,
   team_number integer not null,
-  name text not null,
+  name text not null check (char_length(btrim(name)) between 1 and 40),
   score integer not null default 0,
   created_at timestamptz not null default now(),
-  unique (room_id, team_number)
+  unique (room_id, team_number),
+  unique (id, room_id)
 );
 
 create table if not exists public.room_players (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references public.rooms(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  display_name text not null,
+  display_name text not null check (char_length(btrim(display_name)) between 1 and 32),
   avatar_id text,
-  team_id uuid references public.room_teams(id) on delete set null,
+  team_id uuid,
   score integer not null default 0,
   is_host boolean not null default false,
   is_judge boolean not null default false,
   is_ready boolean not null default false,
   joined_at timestamptz not null default now(),
   left_at timestamptz,
-  unique (room_id, user_id)
+  unique (room_id, user_id),
+  constraint room_players_team_room_fk
+    foreign key (team_id, room_id)
+    references public.room_teams(id, room_id)
 );
 
 create table if not exists public.games (
@@ -115,10 +119,13 @@ create table if not exists public.score_events (
   game_id uuid not null references public.games(id) on delete cascade,
   challenge_id uuid references public.game_challenges(id) on delete set null,
   user_id uuid not null references auth.users(id) on delete cascade,
-  team_id uuid references public.room_teams(id) on delete set null,
+  team_id uuid,
   points_delta integer not null,
   reason text not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint score_events_team_room_fk
+    foreign key (team_id, room_id)
+    references public.room_teams(id, room_id)
 );
 
 create table if not exists public.users (
@@ -245,17 +252,11 @@ on public.rooms for select
 using (
   public.is_room_member(id)
   or host_user_id = auth.uid()
-  or code = nullif(current_setting('app.join_room_code', true), '')
 );
 
 create policy "room_players_select_members"
 on public.room_players for select
 using (public.is_room_member(room_id) or user_id = auth.uid());
-
-create policy "room_players_update_self"
-on public.room_players for update
-using (user_id = auth.uid())
-with check (user_id = auth.uid());
 
 create policy "room_teams_select_members"
 on public.room_teams for select
@@ -507,6 +508,18 @@ begin
     raise exception 'AUTH_REQUIRED';
   end if;
 
+  if p_game_mode not in ('individual', 'teams') then
+    raise exception 'INVALID_GAME_MODE';
+  end if;
+
+  if p_judge_mode not in ('none', 'host', 'dedicated') then
+    raise exception 'INVALID_JUDGE_MODE';
+  end if;
+
+  if p_game_mode = 'teams' and coalesce(p_team_count, 0) not in (2, 3, 4) then
+    raise exception 'INVALID_TEAM_COUNT';
+  end if;
+
   perform public.ensure_base_user();
   player_name := public.ensure_profile_name(null);
 
@@ -554,10 +567,28 @@ begin
     raise exception 'AUTH_REQUIRED';
   end if;
 
+  if p_game_mode not in ('individual', 'teams') then
+    raise exception 'INVALID_GAME_MODE';
+  end if;
+
+  if p_judge_mode not in ('none', 'host', 'dedicated') then
+    raise exception 'INVALID_JUDGE_MODE';
+  end if;
+
+  if p_game_mode = 'teams' and coalesce(p_team_count, 0) not in (2, 3, 4) then
+    raise exception 'INVALID_TEAM_COUNT';
+  end if;
+
+  if upper(trim(p_room_code)) !~ '^[A-Z2-9]{5,6}$' then
+    raise exception 'INVALID_ROOM_CODE';
+  end if;
+
   perform public.ensure_base_user();
   resolved_name := public.ensure_profile_name(p_display_name);
 
-  perform set_config('app.join_room_code', upper(trim(p_room_code)), true);
+  if char_length(resolved_name) > 32 then
+    raise exception 'INVALID_DISPLAY_NAME';
+  end if;
 
   select * into target_room
   from public.rooms
@@ -570,6 +601,14 @@ begin
 
   if target_room.status <> 'waiting' then
     raise exception 'ROOM_STARTED';
+  end if;
+
+  if (select count(*) from public.room_players where room_id = target_room.id and left_at is null) >= 8 then
+    raise exception 'ROOM_FULL';
+  end if;
+
+  if target_room.judge_mode = 'dedicated' and (select count(*) from public.room_players where room_id = target_room.id and is_judge and left_at is null) > 0 then
+    raise exception 'DEDICATED_JUDGE_ASSIGNED';
   end if;
 
   if target_room.game_mode = 'teams' then
@@ -591,7 +630,13 @@ begin
     (select avatar_id from public.profiles where id = auth.uid()),
     assigned_team_id,
     false,
-    false,
+    target_room.judge_mode = 'dedicated'
+      and not exists (
+        select 1 from public.room_players existing_judge
+        where existing_judge.room_id = target_room.id
+          and existing_judge.is_judge
+          and existing_judge.left_at is null
+      ),
     null
   )
   on conflict (room_id, user_id)
@@ -602,6 +647,18 @@ begin
     is_host = false,
     is_judge = false,
     left_at = null;
+
+  if target_room.judge_mode = 'dedicated' then
+    update public.rooms
+    set judge_user_id = (
+      select user_id
+      from public.room_players
+      where room_id = target_room.id and is_judge and left_at is null
+      order by joined_at asc
+      limit 1
+    )
+    where id = target_room.id;
+  end if;
 
   return query select target_room.id, target_room.code;
 end;
@@ -637,9 +694,8 @@ begin
   if exists (select 1 from public.rooms where id = p_room_id and host_user_id = auth.uid()) then
     select rp.user_id into next_host
     from public.room_players rp
-    join public.rooms r on r.id = rp.room_id
     where rp.room_id = p_room_id and rp.left_at is null
-    order by (rp.user_id = r.host_user_id) desc, rp.joined_at asc
+    order by rp.joined_at asc
     limit 1;
 
     update public.rooms

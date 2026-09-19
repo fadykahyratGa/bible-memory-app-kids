@@ -111,12 +111,13 @@ void main() {
                 isPrivate: true,
               ))),
           roomPlayersProvider('room-1').overrideWith((ref) => Stream.value(const [])),
-          activeGameProvider('room-1').overrideWith((ref) => Stream.value(const GameSession(
+          activeGameProvider('room-1').overrideWith((ref) => Stream.value(GameSession(
                 id: 'game-1',
                 roomId: 'room-1',
                 state: MultiplayerGameState.playing,
                 currentRoundOrder: 1,
                 currentChallengeOrder: 1,
+                challengeEndsAt: DateTime.now().subtract(const Duration(minutes: 1)),
               ))),
           currentChallengeProvider('room-1').overrideWith((ref) => Stream.value(null)),
         ],
@@ -155,12 +156,61 @@ void main() {
                 isPrivate: true,
               ))),
           roomPlayersProvider('room-1').overrideWith((ref) => Stream.value(const [])),
-          activeGameProvider('room-1').overrideWith((ref) => Stream.value(const GameSession(
+          activeGameProvider('room-1').overrideWith((ref) => Stream.value(GameSession(
                 id: 'game-1',
                 roomId: 'room-1',
                 state: MultiplayerGameState.playing,
                 currentRoundOrder: 1,
                 currentChallengeOrder: 1,
+                challengeEndsAt: DateTime.now().subtract(const Duration(minutes: 1)),
+              ))),
+          currentChallengeProvider('room-1').overrideWith((ref) => Stream.value(null)),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const MultiplayerGameScreen(roomId: 'room-1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    expect(find.text('التحدي التالي'), findsNothing);
+  });
+
+
+  testWidgets('hides advance button until the challenge has expired', (tester) async {
+    final fakeSession = _FakeSessionController(currentUserId: 'host-1');
+    final fakeGameRepository = _FakeGameRepository();
+    final futureEnd = DateTime.now().add(const Duration(minutes: 1));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionControllerProvider.overrideWith((ref) => fakeSession),
+          gameRepositoryProvider.overrideWithValue(fakeGameRepository),
+          roomProvider('room-1').overrideWith((ref) => Stream.value(const Room(
+                id: 'room-1',
+                code: 'ABCDE',
+                hostUserId: 'host-1',
+                gameMode: RoomGameMode.individual,
+                judgeMode: RoomJudgeMode.none,
+                status: RoomStatus.playing,
+                isPrivate: true,
+              ))),
+          roomPlayersProvider('room-1').overrideWith((ref) => Stream.value(const [])),
+          activeGameProvider('room-1').overrideWith((ref) => Stream.value(GameSession(
+                id: 'game-1',
+                roomId: 'room-1',
+                state: MultiplayerGameState.playing,
+                currentRoundOrder: 1,
+                currentChallengeOrder: 1,
+                challengeEndsAt: futureEnd,
               ))),
           currentChallengeProvider('room-1').overrideWith((ref) => Stream.value(null)),
         ],

@@ -53,7 +53,7 @@ class GameRepository {
         continue;
       }
 
-      final currentKey = '${game.id}:${game.currentRoundOrder}:${game.currentChallengeOrder}:${game.state.name}:${game.challengeEndsAt?.millisecondsSinceEpoch ?? 0}';
+      final currentKey = '${game.id}:${game.currentRoundOrder}:${game.currentChallengeOrder}';
       if (currentKey == lastKey) {
         yield lastChallenge;
         continue;

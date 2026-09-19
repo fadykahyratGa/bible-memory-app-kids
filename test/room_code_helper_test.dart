@@ -16,12 +16,21 @@ void main() {
       expect(code.contains('I'), isFalse);
     });
 
-    test('validates only 5 or 6 character uppercase codes', () {
+    test('rejects unsupported generated code lengths at runtime', () {
+      expect(() => RoomCodeHelper.generate(length: 4), throwsArgumentError);
+      expect(() => RoomCodeHelper.generate(length: 7), throwsArgumentError);
+    });
+
+    test('validates only 5 or 6 codes using A-Z and digits 2-9', () {
       expect(RoomCodeHelper.isValid('ABCD2'), isTrue);
       expect(RoomCodeHelper.isValid('ABCDEF'), isTrue);
+      expect(RoomCodeHelper.isValid('ABC2D9'), isTrue);
       expect(RoomCodeHelper.isValid('abc12'), isFalse);
       expect(RoomCodeHelper.isValid('AB1'), isFalse);
       expect(RoomCodeHelper.isValid('ABCD@1'), isFalse);
+      expect(RoomCodeHelper.isValid('ABCDO1'), isFalse);
+      expect(RoomCodeHelper.isValid('ABCD01'), isFalse);
+      expect(RoomCodeHelper.isValid(' ABCD2 '), isTrue);
     });
   });
 }
