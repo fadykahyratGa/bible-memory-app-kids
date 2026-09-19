@@ -6,12 +6,14 @@ import 'supabase_client_provider.dart';
 
 class ProgressService {
   ProgressService({SupabaseClient? client})
-      : _client = client ?? SupabaseClientProvider.client;
+      : _client = client ?? SupabaseClientProvider.maybeClient;
 
-  final SupabaseClient _client;
+  final SupabaseClient? _client;
 
   Future<UserProgress> loadProgress(String userId) async {
-    final data = await _client.from('user_progress').select().eq('user_id', userId).maybeSingle();
+    final client = _client;
+    if (client == null) return UserProgress.empty();
+    final data = await client.from('user_progress').select().eq('user_id', userId).maybeSingle();
     if (data == null) return UserProgress.empty();
 
     return UserProgress(
@@ -26,7 +28,9 @@ class ProgressService {
   }
 
   Future<void> upsertProgress(String userId, UserProgress progress) async {
-    await _client.from('user_progress').upsert({
+    final client = _client;
+    if (client == null) return;
+    await client.from('user_progress').upsert({
           'user_id': userId,
           'total_verses_completed': progress.totalVersesCompleted,
           'total_games_played': progress.totalGamesPlayed,
@@ -37,15 +41,21 @@ class ProgressService {
   }
 
   Future<List<String>> fetchFavorites(String userId) async {
-    final response = await _client.from('favorites').select('verse_ref').eq('user_id', userId);
+    final client = _client;
+    if (client == null) return const [];
+    final response = await client.from('favorites').select('verse_ref').eq('user_id', userId);
     return (response as List<dynamic>).map((row) => row['verse_ref'] as String).toList();
   }
 
   Future<void> toggleFavorite(String userId, String verseRef, bool isFavorite) async {
     if (isFavorite) {
-      await _client.from('favorites').delete().match({'user_id': userId, 'verse_ref': verseRef});
+      final client = _client;
+      if (client == null) return;
+      await client.from('favorites').delete().match({'user_id': userId, 'verse_ref': verseRef});
     } else {
-      await _client.from('favorites').upsert({'user_id': userId, 'verse_ref': verseRef});
+      final client = _client;
+      if (client == null) return;
+      await client.from('favorites').upsert({'user_id': userId, 'verse_ref': verseRef});
     }
   }
 }
