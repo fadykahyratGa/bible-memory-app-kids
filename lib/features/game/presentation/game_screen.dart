@@ -111,7 +111,7 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
                             child: ChoiceChip(
                               label: Text(choice.label),
                               selected: _selectedAnswer == choice.value,
-                              onSelected: (_) => setState(() => _selectedAnswer = choice.value),
+                              onSelected: (selected) => setState(() => _selectedAnswer = selected ? choice.value : null),
                             ),
                           ),
                         const SizedBox(height: 12),

@@ -61,7 +61,6 @@ class ResultsScreen extends ConsumerWidget {
 
                   try {
                     await ref.read(sessionControllerProvider).refreshProfileAndMembership();
-                    ref.read(sessionControllerProvider).clearRestoreLocation();
                     if (context.mounted) {
                       context.go('/home');
                     }
@@ -69,6 +68,8 @@ class ResultsScreen extends ConsumerWidget {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppErrorMapper.map(error).userMessage)));
                     }
+                  } finally {
+                    ref.read(sessionControllerProvider).clearRestoreLocation();
                   }
                 },
               ),

@@ -885,6 +885,7 @@ $$;
 
 revoke all on function public.find_room_by_code(text) from public, anon, authenticated;
 
+grant execute on function public.find_room_by_code(text) to authenticated;
 grant execute on function public.create_room(text, text, integer, boolean) to authenticated;
 grant execute on function public.join_room(text, text) to authenticated;
 grant execute on function public.leave_room(uuid) to authenticated;

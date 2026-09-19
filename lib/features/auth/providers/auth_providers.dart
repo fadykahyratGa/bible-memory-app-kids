@@ -80,14 +80,22 @@ class AppSessionController extends ChangeNotifier {
   }
 
   Future<void> refreshProfileAndMembership() async {
+    _restoreLocation = null;
     if (_user == null) {
       await bootstrap();
       return;
     }
-    _profile = await _profileRepository.fetchOwnProfile(_user!.id);
-    final membership = _profile == null ? null : await _roomRepository.findActiveMembership(_user!.id);
-    _restoreLocation = membership?.restoreLocation;
-    notifyListeners();
+
+    try {
+      _profile = await _profileRepository.fetchOwnProfile(_user!.id);
+      final membership = _profile == null ? null : await _roomRepository.findActiveMembership(_user!.id);
+      _restoreLocation = membership?.restoreLocation;
+      notifyListeners();
+    } catch (_) {
+      _restoreLocation = null;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   void clearRestoreLocation() {

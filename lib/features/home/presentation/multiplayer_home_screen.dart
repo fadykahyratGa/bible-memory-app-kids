@@ -125,7 +125,10 @@ class _ActionCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_back_rounded, size: 18),
+              Icon(
+                Directionality.of(context) == TextDirection.rtl ? Icons.arrow_back_ios_rounded : Icons.arrow_forward_ios_rounded,
+                size: 18,
+              ),
             ],
           ),
         ),
