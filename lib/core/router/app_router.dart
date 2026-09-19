@@ -34,6 +34,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (location == '/' || location == '/profile-setup') {
         return session.restoreLocation ?? '/home';
       }
+
+      if ((location == '/room/create' || location == '/room/join')
+          && session.restoreLocation != null
+          && session.restoreLocation!.startsWith('/room/')) {
+        return session.restoreLocation;
+      }
+
+      if (location.startsWith('/room/') && state.pathParameters.containsKey('roomId')) {
+        final restoreLocation = session.restoreLocation;
+        if (restoreLocation == null || !restoreLocation.startsWith('/room/')) {
+          return '/home';
+        }
+
+        final requestedRoomId = state.pathParameters['roomId'];
+        final restoreSegments = Uri.parse(restoreLocation).pathSegments;
+        final restoreRoomId = restoreSegments.length >= 2 ? restoreSegments[1] : null;
+        if (requestedRoomId == null || restoreRoomId == null || requestedRoomId != restoreRoomId) {
+          return restoreLocation;
+        }
+
+        if (location != restoreLocation) {
+          return restoreLocation;
+        }
+      }
+
       return null;
     },
     routes: [

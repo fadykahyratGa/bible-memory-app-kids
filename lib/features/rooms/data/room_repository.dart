@@ -76,20 +76,27 @@ class RoomRepository {
     }
     final membershipRows = await _clientOrThrow
         .from('room_players')
-        .select('room_id, left_at, joined_at')
+        .select('room_id, joined_at')
         .eq('user_id', currentUserId)
+        .isFilter('left_at', null)
         .order('joined_at', ascending: false)
-        .limit(10);
-    final membership = (membershipRows as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .firstWhere((row) => row['left_at'] == null, orElse: () => <String, dynamic>{});
+        .limit(1);
+    final memberships = (membershipRows as List<dynamic>).cast<Map<String, dynamic>>();
+    final membership = memberships.isEmpty ? <String, dynamic>{} : memberships.first;
     if (membership.isEmpty) {
       return null;
     }
 
     final roomId = membership['room_id'] as String;
     final room = await fetchRoom(roomId);
-    final gameRows = await _clientOrThrow.from('games').select().eq('room_id', roomId).order('created_at', ascending: false).limit(1);
+    final gameRows = await _clientOrThrow
+        .from('games')
+        .select()
+        .eq('room_id', roomId)
+        .order('started_at', ascending: false, nullsFirst: false)
+        .order('created_at', ascending: false)
+        .order('id', ascending: false)
+        .limit(1);
     GameSession? game;
     if (gameRows is List && gameRows.isNotEmpty) {
       game = GameSession.fromMap(Map<String, dynamic>.from(gameRows.first as Map));
@@ -105,7 +112,10 @@ class RoomRepository {
 
   Stream<Room> observeRoom(String roomId) {
     return _clientOrThrow.from('rooms').stream(primaryKey: <String>['id']).eq('id', roomId).map((rows) {
-      final row = rows.firstWhere((item) => item['id'] == roomId);
+      final row = rows.cast<Map<String, dynamic>?>().whereType<Map<String, dynamic>>().firstWhere(
+            (item) => item['id'] == roomId,
+            orElse: () => throw const AppException(code: 'room_not_found', userMessage: AppErrorMapper.roomNotFoundMessage),
+          );
       return Room.fromMap(row);
     });
   }

@@ -38,6 +38,9 @@ class AppErrorMapper {
       if (message.contains('INVALID_DISPLAY_NAME')) {
         return AppException(code: 'invalid_display_name', userMessage: 'الاسم غير صالح. استخدم اسمًا قصيرًا وواضحًا.', debugMessage: error.message);
       }
+      if (message.contains('CHALLENGE_STILL_ACTIVE')) {
+        return AppException(code: 'challenge_still_active', userMessage: 'انتظر حتى ينتهي وقت التحدي الحالي.', debugMessage: error.message);
+      }
       if (message.contains('NOT_HOST')) {
         return AppException(code: 'not_host', userMessage: 'فقط صاحب الغرفة يمكنه تنفيذ هذا الإجراء.', debugMessage: error.message);
       }

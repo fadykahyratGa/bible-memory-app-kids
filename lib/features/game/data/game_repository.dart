@@ -5,6 +5,15 @@ import 'package:bible_memory_app_kids/core/errors/error_mapper.dart';
 
 import 'package:bible_memory_app_kids/features/game/domain/game_models.dart';
 
+int _compareDescNullableString(String? left, String? right) {
+  final leftHasValue = left != null && left.isNotEmpty;
+  final rightHasValue = right != null && right.isNotEmpty;
+  if (leftHasValue != rightHasValue) {
+    return leftHasValue ? -1 : 1;
+  }
+  return (right ?? '').compareTo(left ?? '');
+}
+
 class GameRepository {
   GameRepository(this._client);
 
@@ -36,40 +45,29 @@ class GameRepository {
       if (rows.isEmpty) {
         return null;
       }
-      rows.sort((a, b) => (b['created_at'] as String? ?? '').compareTo(a['created_at'] as String? ?? ''));
+      rows.sort((a, b) {
+        final startedCompare = _compareDescNullableString(a['started_at'] as String?, b['started_at'] as String?);
+        if (startedCompare != 0) {
+          return startedCompare;
+        }
+
+        final createdCompare = _compareDescNullableString(a['created_at'] as String?, b['created_at'] as String?);
+        if (createdCompare != 0) {
+          return createdCompare;
+        }
+
+        return _compareDescNullableString(a['id'] as String?, b['id'] as String?);
+      });
       return GameSession.fromMap(rows.first);
     });
   }
 
-  Stream<GameChallenge?> observeCurrentChallenge(String roomId) async* {
-    String? lastKey;
-    GameChallenge? lastChallenge;
-
-    await for (final game in observeGame(roomId)) {
-      if (game == null) {
-        lastKey = null;
-        lastChallenge = null;
-        yield null;
-        continue;
-      }
-
-      final currentKey = '${game.id}:${game.currentRoundOrder}:${game.currentChallengeOrder}';
-      if (currentKey == lastKey) {
-        yield lastChallenge;
-        continue;
-      }
-
-      final response = await _clientOrThrow.rpc('get_current_challenge', params: <String, dynamic>{'p_room_id': roomId});
-      if (response is! List || response.isEmpty) {
-        lastKey = currentKey;
-        lastChallenge = null;
-        yield null;
-        continue;
-      }
-
-      lastKey = currentKey;
-      lastChallenge = GameChallenge.fromMap(Map<String, dynamic>.from(response.first as Map));
-      yield lastChallenge;
+  Future<GameChallenge?> fetchCurrentChallenge(String roomId) async {
+    final response = await _clientOrThrow.rpc('get_current_challenge', params: <String, dynamic>{'p_room_id': roomId});
+    if (response is! List || response.isEmpty) {
+      return null;
     }
+
+    return GameChallenge.fromMap(Map<String, dynamic>.from(response.first as Map));
   }
 }

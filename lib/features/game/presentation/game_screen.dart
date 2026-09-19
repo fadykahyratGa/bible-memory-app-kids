@@ -13,6 +13,14 @@ import 'package:bible_memory_app_kids/features/shared/presentation/background_sc
 import 'package:bible_memory_app_kids/ui/widgets/primary_button.dart';
 import 'package:bible_memory_app_kids/ui/widgets/rounded_panel.dart';
 
+bool hasChallengeExpired(DateTime? endsAt, {DateTime? now}) {
+  if (endsAt == null) {
+    return false;
+  }
+  final currentTime = now ?? DateTime.now();
+  return !currentTime.isBefore(endsAt);
+}
+
 class MultiplayerGameScreen extends ConsumerStatefulWidget {
   const MultiplayerGameScreen({super.key, required this.roomId});
 
@@ -73,7 +81,7 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
         data: (room) {
           final isHost = room.hostUserId == currentUserId;
           final isAnsweringState = activeGame?.state == MultiplayerGameState.playing || activeGame?.state == MultiplayerGameState.answering;
-          final challengeExpired = activeGame?.challengeEndsAt != null && DateTime.now().isAfter(activeGame!.challengeEndsAt!);
+          final challengeExpired = hasChallengeExpired(activeGame?.challengeEndsAt);
           final canAdvance = isHost && activeGame != null && (!isAnsweringState || challengeExpired);
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -103,6 +111,7 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
                     return RoundedPanel(child: Text(l10n.noChallengeYet));
                   }
                   final answerChoices = _answerChoices(challenge, l10n);
+                  final canSubmit = _selectedAnswer != null && !_submitting && !challengeExpired;
                   return RoundedPanel(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,15 +124,15 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
                             child: ChoiceChip(
                               label: Text(choice.label),
                               selected: _selectedAnswer == choice.value,
-                              onSelected: (selected) => setState(() => _selectedAnswer = selected ? choice.value : null),
+                              onSelected: challengeExpired
+                                  ? null
+                                  : (selected) => setState(() => _selectedAnswer = selected ? choice.value : null),
                             ),
                           ),
                         const SizedBox(height: 12),
                         PrimaryButton(
                           label: l10n.submitAnswer,
-                          onPressed: _selectedAnswer == null || _submitting
-                              ? null
-                              : () => _submitAnswer(challenge.id, _selectedAnswer!),
+                          onPressed: canSubmit ? () => _submitAnswer(challenge.id, _selectedAnswer!) : null,
                         ),
                       ],
                     ),

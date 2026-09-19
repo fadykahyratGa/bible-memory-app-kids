@@ -85,6 +85,7 @@ class ResultsScreen extends ConsumerWidget {
                     ref.read(sessionControllerProvider).clearRestoreLocation();
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppErrorMapper.map(error).userMessage)));
+                      context.go('/home');
                     }
                   }
                 },

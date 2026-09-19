@@ -47,24 +47,30 @@ class AppSessionController extends ChangeNotifier {
     _isLoading = true;
     _error = null;
     notifyListeners();
+    var resolvedUser = _user;
+    var resolvedProfile = _profile;
+    var resolvedRestoreLocation = _restoreLocation;
     try {
-      _user = await _authRepository.restoreOrCreateAnonymousUser();
-      _profile = await _profileRepository.fetchOwnProfile(_user!.id);
-      if (_profile != null) {
+      resolvedUser = await _authRepository.restoreOrCreateAnonymousUser();
+      resolvedProfile = await _profileRepository.fetchOwnProfile(resolvedUser!.id);
+      if (resolvedProfile != null) {
         final membership = await _roomRepository.findActiveMembership();
-        _restoreLocation = membership?.restoreLocation;
+        resolvedRestoreLocation = membership?.restoreLocation;
       } else {
-        _restoreLocation = null;
+        resolvedRestoreLocation = null;
       }
+      _user = resolvedUser;
+      _profile = resolvedProfile;
+      _restoreLocation = resolvedRestoreLocation;
       AppLogger.info('app.bootstrap.complete', <String, Object?>{
         'userId': _user?.id,
         'hasProfile': _profile != null,
         'restoreLocation': _restoreLocation,
       });
     } catch (error, stackTrace) {
-      _user = null;
-      _profile = null;
-      _restoreLocation = null;
+      _user = resolvedUser;
+      _profile = resolvedProfile;
+      _restoreLocation = resolvedRestoreLocation;
       AppLogger.error('app.bootstrap.failed', error, <String, Object?>{'stackTrace': '$stackTrace'});
       _error = AppErrorMapper.map(error);
     } finally {
@@ -83,20 +89,22 @@ class AppSessionController extends ChangeNotifier {
   }
 
   Future<void> refreshProfileAndMembership() async {
-    _restoreLocation = null;
     if (_user == null) {
       await bootstrap();
       return;
     }
 
+    final previousProfile = _profile;
+    final previousRestoreLocation = _restoreLocation;
     try {
-      _profile = await _profileRepository.fetchOwnProfile(_user!.id);
-      final membership = _profile == null ? null : await _roomRepository.findActiveMembership();
+      final refreshedProfile = await _profileRepository.fetchOwnProfile(_user!.id);
+      final membership = refreshedProfile == null ? null : await _roomRepository.findActiveMembership();
+      _profile = refreshedProfile;
       _restoreLocation = membership?.restoreLocation;
       notifyListeners();
     } catch (_) {
-      _restoreLocation = null;
-      notifyListeners();
+      _profile = previousProfile;
+      _restoreLocation = previousRestoreLocation;
       rethrow;
     }
   }

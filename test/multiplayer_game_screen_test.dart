@@ -21,6 +21,12 @@ import 'package:bible_memory_app_kids/features/rooms/providers/room_providers.da
 import 'package:bible_memory_app_kids/features/profile/data/profile_repository.dart';
 
 void main() {
+  test('treats challenge expiry equality as expired', () {
+    final now = DateTime(2026, 1, 1, 12, 0, 0);
+    expect(hasChallengeExpired(now, now: now), isTrue);
+    expect(hasChallengeExpired(now.add(const Duration(seconds: 1)), now: now), isFalse);
+  });
+
   testWidgets('navigates to results when game state becomes finished', (tester) async {
     final controller = StreamController<GameSession?>();
     addTearDown(controller.close);
@@ -229,6 +235,67 @@ void main() {
 
     await tester.pumpAndSettle();
     expect(find.text('التحدي التالي'), findsNothing);
+  });
+
+
+  testWidgets('disables answer submission after the challenge expires', (tester) async {
+    final fakeSession = _FakeSessionController();
+    final fakeGameRepository = _FakeGameRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionControllerProvider.overrideWith((ref) => fakeSession),
+          gameRepositoryProvider.overrideWithValue(fakeGameRepository),
+          roomProvider('room-1').overrideWith((ref) => Stream.value(const Room(
+                id: 'room-1',
+                code: 'ABCDE',
+                hostUserId: 'host-1',
+                gameMode: RoomGameMode.individual,
+                judgeMode: RoomJudgeMode.none,
+                status: RoomStatus.playing,
+                isPrivate: true,
+              ))),
+          roomPlayersProvider('room-1').overrideWith((ref) => Stream.value(const [])),
+          activeGameProvider('room-1').overrideWith((ref) => Stream.value(GameSession(
+                id: 'game-1',
+                roomId: 'room-1',
+                state: MultiplayerGameState.playing,
+                currentRoundOrder: 1,
+                currentChallengeOrder: 1,
+                challengeEndsAt: DateTime.now().subtract(const Duration(minutes: 1)),
+              ))),
+          currentChallengeProvider('room-1').overrideWith((ref) => Stream.value(const GameChallenge(
+                id: 'challenge-1',
+                roundId: 'round-1',
+                challengeOrder: 1,
+                type: ChallengeType.multipleChoice,
+                prompt: 'Expired?',
+                correctAnswer: 'A',
+                points: 10,
+                options: ['A', 'B'],
+              ))),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const MultiplayerGameScreen(roomId: 'room-1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('A'));
+    await tester.pump();
+
+    final submitButton = tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'إرسال الإجابة'));
+    expect(submitButton.onPressed, isNull);
+    expect(fakeGameRepository.submittedAnswer, isNull);
   });
 
   testWidgets('submits canonical true-false answers in English locale', (tester) async {

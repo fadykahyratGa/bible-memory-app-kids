@@ -30,7 +30,7 @@ create table if not exists public.rooms (
   team_count integer check (team_count between 2 and 4),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint rooms_code_format check (code ~ '^[A-Z2-9]{5,6}$')
+  constraint rooms_code_format check (code ~ '^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5,6}$')
 );
 
 create table if not exists public.room_teams (
@@ -216,6 +216,8 @@ create or replace function public.is_room_member(target_room_id uuid)
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select exists(
     select 1
@@ -508,18 +510,6 @@ begin
     raise exception 'AUTH_REQUIRED';
   end if;
 
-  if p_game_mode not in ('individual', 'teams') then
-    raise exception 'INVALID_GAME_MODE';
-  end if;
-
-  if p_judge_mode not in ('none', 'host', 'dedicated') then
-    raise exception 'INVALID_JUDGE_MODE';
-  end if;
-
-  if p_game_mode = 'teams' and coalesce(p_team_count, 0) not in (2, 3, 4) then
-    raise exception 'INVALID_TEAM_COUNT';
-  end if;
-
   perform public.ensure_base_user();
   player_name := public.ensure_profile_name(null);
 
@@ -562,24 +552,14 @@ declare
   target_room record;
   resolved_name text;
   assigned_team_id uuid;
+  existing_player_id uuid;
+  existing_left_at timestamptz;
 begin
   if auth.uid() is null then
     raise exception 'AUTH_REQUIRED';
   end if;
 
-  if p_game_mode not in ('individual', 'teams') then
-    raise exception 'INVALID_GAME_MODE';
-  end if;
-
-  if p_judge_mode not in ('none', 'host', 'dedicated') then
-    raise exception 'INVALID_JUDGE_MODE';
-  end if;
-
-  if p_game_mode = 'teams' and coalesce(p_team_count, 0) not in (2, 3, 4) then
-    raise exception 'INVALID_TEAM_COUNT';
-  end if;
-
-  if upper(trim(p_room_code)) !~ '^[A-Z2-9]{5,6}$' then
+  if upper(trim(p_room_code)) !~ '^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5,6}$' then
     raise exception 'INVALID_ROOM_CODE';
   end if;
 
@@ -603,12 +583,15 @@ begin
     raise exception 'ROOM_STARTED';
   end if;
 
-  if (select count(*) from public.room_players where room_id = target_room.id and left_at is null) >= 8 then
-    raise exception 'ROOM_FULL';
-  end if;
+  select id, left_at into existing_player_id, existing_left_at
+  from public.room_players
+  where room_id = target_room.id and user_id = auth.uid()
+  order by joined_at desc, id desc
+  limit 1;
 
-  if target_room.judge_mode = 'dedicated' and (select count(*) from public.room_players where room_id = target_room.id and is_judge and left_at is null) > 0 then
-    raise exception 'DEDICATED_JUDGE_ASSIGNED';
+  if existing_player_id is null
+    and (select count(*) from public.room_players where room_id = target_room.id and left_at is null) >= 8 then
+    raise exception 'ROOM_FULL';
   end if;
 
   if target_room.game_mode = 'teams' then
@@ -644,8 +627,19 @@ begin
     display_name = excluded.display_name,
     avatar_id = excluded.avatar_id,
     team_id = coalesce(public.room_players.team_id, excluded.team_id),
-    is_host = false,
-    is_judge = false,
+    is_host = public.room_players.is_host,
+    is_judge = case
+      when target_room.judge_mode = 'host' then target_room.host_user_id = auth.uid()
+      when target_room.judge_mode = 'dedicated' then target_room.judge_user_id = auth.uid()
+        or (target_room.judge_user_id is null and not exists (
+          select 1 from public.room_players existing_judge
+          where existing_judge.room_id = target_room.id
+            and existing_judge.user_id <> auth.uid()
+            and existing_judge.is_judge
+            and existing_judge.left_at is null
+        ))
+      else false
+    end,
     left_at = null;
 
   if target_room.judge_mode = 'dedicated' then
@@ -704,9 +698,11 @@ begin
     where id = p_room_id;
 
     if next_host is not null then
-      update public.room_players
-      set is_judge = false
-      where room_id = p_room_id and left_at is null;
+      if current_judge_mode = 'host' then
+        update public.room_players
+        set is_judge = false
+        where room_id = p_room_id and left_at is null;
+      end if;
 
       update public.room_players
       set is_host = true,
@@ -819,8 +815,9 @@ begin
   select * into active_game
   from public.games
   where room_id = p_room_id
-  order by created_at desc
-  limit 1;
+  order by started_at desc nulls last, created_at desc, id desc
+  limit 1
+  for update;
 
   if active_game.id is null then
     raise exception 'GAME_NOT_FOUND';
@@ -849,7 +846,7 @@ begin
     raise exception 'CHALLENGE_CLOSED';
   end if;
 
-  if active_game.current_challenge_ends_at is not null and now() > active_game.current_challenge_ends_at then
+  if active_game.current_challenge_ends_at is not null and now() >= active_game.current_challenge_ends_at then
     raise exception 'CHALLENGE_CLOSED';
   end if;
 
@@ -858,7 +855,8 @@ begin
 
   select team_id into team_id_value
   from public.room_players
-  where room_id = p_room_id and user_id = auth.uid();
+  where room_id = p_room_id and user_id = auth.uid()
+  for update;
 
   select coalesce(points_awarded, 0) into previous_points
   from public.player_answers
@@ -911,11 +909,18 @@ begin
   select * into active_game
   from public.games
   where room_id = p_room_id
-  order by created_at desc
-  limit 1;
+  order by started_at desc nulls last, created_at desc, id desc
+  limit 1
+  for update;
 
   if active_game.id is null then
     raise exception 'GAME_NOT_FOUND';
+  end if;
+
+  if active_game.state in ('playing', 'answering')
+    and active_game.current_challenge_ends_at is not null
+    and now() < active_game.current_challenge_ends_at then
+    raise exception 'CHALLENGE_STILL_ACTIVE';
   end if;
 
   select count(*) into total_challenges
