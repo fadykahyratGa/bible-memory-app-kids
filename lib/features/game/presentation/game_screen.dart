@@ -65,12 +65,14 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
     final gameAsync = ref.watch(activeGameProvider(widget.roomId));
     final challengeAsync = ref.watch(currentChallengeProvider(widget.roomId));
     final currentUserId = ref.watch(sessionControllerProvider).user?.id;
+    final activeGame = gameAsync.valueOrNull;
 
     return BackgroundScaffold(
       appBar: AppBar(title: Text(l10n.gameInProgress)),
       child: roomAsync.when(
         data: (room) {
           final isHost = room.hostUserId == currentUserId;
+          final canAdvance = isHost && activeGame != null && (activeGame.challengeEndsAt == null || DateTime.now().isAfter(activeGame.challengeEndsAt!));
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -148,7 +150,7 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Text(AppErrorMapper.map(error).userMessage),
               ),
-              if (isHost) ...[
+              if (canAdvance) ...[
                 const SizedBox(height: 16),
                 PrimaryButton(
                   label: l10n.advanceChallenge,

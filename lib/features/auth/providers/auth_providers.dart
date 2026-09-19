@@ -51,7 +51,7 @@ class AppSessionController extends ChangeNotifier {
       _user = await _authRepository.restoreOrCreateAnonymousUser();
       _profile = await _profileRepository.fetchOwnProfile(_user!.id);
       if (_profile != null) {
-        final membership = await _roomRepository.findActiveMembership(_user!.id);
+        final membership = await _roomRepository.findActiveMembership();
         _restoreLocation = membership?.restoreLocation;
       } else {
         _restoreLocation = null;
@@ -88,7 +88,7 @@ class AppSessionController extends ChangeNotifier {
 
     try {
       _profile = await _profileRepository.fetchOwnProfile(_user!.id);
-      final membership = _profile == null ? null : await _roomRepository.findActiveMembership(_user!.id);
+      final membership = _profile == null ? null : await _roomRepository.findActiveMembership();
       _restoreLocation = membership?.restoreLocation;
       notifyListeners();
     } catch (_) {

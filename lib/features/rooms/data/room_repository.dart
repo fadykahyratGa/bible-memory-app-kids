@@ -69,11 +69,15 @@ class RoomRepository {
     await _clientOrThrow.rpc('leave_room', params: <String, dynamic>{'p_room_id': roomId});
   }
 
-  Future<RoomMembership?> findActiveMembership(String userId) async {
+  Future<RoomMembership?> findActiveMembership() async {
+    final currentUserId = _clientOrThrow.auth.currentUser?.id;
+    if (currentUserId == null) {
+      return null;
+    }
     final membershipRows = await _clientOrThrow
         .from('room_players')
         .select('room_id, left_at, joined_at')
-        .eq('user_id', userId)
+        .eq('user_id', currentUserId)
         .order('joined_at', ascending: false)
         .limit(10);
     final membership = (membershipRows as List<dynamic>)

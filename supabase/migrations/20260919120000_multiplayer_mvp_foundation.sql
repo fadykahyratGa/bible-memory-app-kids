@@ -242,7 +242,11 @@ with check (auth.uid() = id);
 
 create policy "rooms_select_members"
 on public.rooms for select
-using (public.is_room_member(id) or host_user_id = auth.uid());
+using (
+  public.is_room_member(id)
+  or host_user_id = auth.uid()
+  or code = nullif(current_setting('app.join_room_code', true), '')
+);
 
 create policy "room_players_select_members"
 on public.room_players for select
@@ -327,18 +331,6 @@ create policy "settings_own"
 on public.settings for all
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
-
-create or replace function public.find_room_by_code(p_room_code text)
-returns table (id uuid, code text, game_mode text, status text)
-language sql
-security definer
-set search_path = public
-as $$
-  select rooms.id, rooms.code, rooms.game_mode, rooms.status
-  from public.rooms
-  where rooms.code = upper(trim(p_room_code))
-  limit 1;
-$$;
 
 create or replace function public.get_current_challenge(p_room_id uuid)
 returns table (
@@ -565,8 +557,12 @@ begin
   perform public.ensure_base_user();
   resolved_name := public.ensure_profile_name(p_display_name);
 
+  perform set_config('app.join_room_code', upper(trim(p_room_code)), true);
+
   select * into target_room
-  from public.find_room_by_code(p_room_code);
+  from public.rooms
+  where code = upper(trim(p_room_code))
+  limit 1;
 
   if target_room.id is null then
     raise exception 'ROOM_NOT_FOUND';
@@ -653,6 +649,10 @@ begin
 
     if next_host is not null then
       update public.room_players
+      set is_judge = false
+      where room_id = p_room_id and left_at is null;
+
+      update public.room_players
       set is_host = true,
           is_judge = case when current_judge_mode = 'host' then true else is_judge end
       where room_id = p_room_id and user_id = next_host;
@@ -682,6 +682,10 @@ begin
     where rp.room_id = p_room_id and rp.left_at is null
     order by (rp.user_id = r.host_user_id) desc, rp.joined_at asc
     limit 1;
+
+    update public.room_players
+    set is_judge = false
+    where room_id = p_room_id and left_at is null;
 
     update public.rooms
     set judge_user_id = next_host
@@ -883,9 +887,6 @@ begin
 end;
 $$;
 
-revoke all on function public.find_room_by_code(text) from public, anon, authenticated;
-
-grant execute on function public.find_room_by_code(text) to authenticated;
 grant execute on function public.create_room(text, text, integer, boolean) to authenticated;
 grant execute on function public.join_room(text, text) to authenticated;
 grant execute on function public.leave_room(uuid) to authenticated;

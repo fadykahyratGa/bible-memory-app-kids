@@ -42,19 +42,34 @@ class GameRepository {
   }
 
   Stream<GameChallenge?> observeCurrentChallenge(String roomId) async* {
+    String? lastKey;
+    GameChallenge? lastChallenge;
+
     await for (final game in observeGame(roomId)) {
       if (game == null) {
+        lastKey = null;
+        lastChallenge = null;
         yield null;
+        continue;
+      }
+
+      final currentKey = '${game.id}:${game.currentRoundOrder}:${game.currentChallengeOrder}:${game.state.name}:${game.challengeEndsAt?.millisecondsSinceEpoch ?? 0}';
+      if (currentKey == lastKey) {
+        yield lastChallenge;
         continue;
       }
 
       final response = await _clientOrThrow.rpc('get_current_challenge', params: <String, dynamic>{'p_room_id': roomId});
       if (response is! List || response.isEmpty) {
+        lastKey = currentKey;
+        lastChallenge = null;
         yield null;
         continue;
       }
 
-      yield GameChallenge.fromMap(Map<String, dynamic>.from(response.first as Map));
+      lastKey = currentKey;
+      lastChallenge = GameChallenge.fromMap(Map<String, dynamic>.from(response.first as Map));
+      yield lastChallenge;
     }
   }
 }
