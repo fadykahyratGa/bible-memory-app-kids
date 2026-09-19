@@ -59,27 +59,8 @@ class GameRepository {
         continue;
       }
 
-      final rounds = await _clientOrThrow
-          .from('game_rounds')
-          .select('id')
-          .eq('game_id', game.id)
-          .eq('round_order', game.currentRoundOrder)
-          .limit(1);
-      if (rounds is! List || rounds.isEmpty) {
-        lastKey = currentKey;
-        lastChallenge = null;
-        yield null;
-        continue;
-      }
-
-      final roundId = (rounds.first as Map<String, dynamic>)['id'] as String;
-      final challenges = await _clientOrThrow
-          .from('game_challenges')
-          .select()
-          .eq('round_id', roundId)
-          .eq('challenge_order', game.currentChallengeOrder)
-          .limit(1);
-      if (challenges is! List || challenges.isEmpty) {
+      final response = await _clientOrThrow.rpc('get_current_challenge', params: <String, dynamic>{'p_room_id': roomId});
+      if (response is! List || response.isEmpty) {
         lastKey = currentKey;
         lastChallenge = null;
         yield null;
@@ -87,7 +68,7 @@ class GameRepository {
       }
 
       lastKey = currentKey;
-      lastChallenge = GameChallenge.fromMap(Map<String, dynamic>.from(challenges.first as Map));
+      lastChallenge = GameChallenge.fromMap(Map<String, dynamic>.from(response.first as Map));
       yield lastChallenge;
     }
   }

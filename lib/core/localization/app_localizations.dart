@@ -60,6 +60,16 @@ class AppLocalizations {
       'codeRequired': 'من فضلك اكتب كود الغرفة.',
       'invalidRoomCode': 'كود الغرفة يجب أن يكون 5 أو 6 أحرف كبيرة.',
       'waitingPlayers': 'في انتظار بقية اللاعبين...',
+      'stateWaiting': 'في الانتظار',
+      'stateStarting': 'جاري البدء',
+      'statePlaying': 'قيد اللعب',
+      'stateAnswering': 'يتم استقبال الإجابات',
+      'stateReviewing': 'مراجعة الإجابات',
+      'stateRoundResults': 'نتائج الجولة',
+      'stateGameResults': 'النتائج النهائية',
+      'statePaused': 'متوقفة مؤقتًا',
+      'stateFinished': 'انتهت',
+      'challengeEndsAt': 'ينتهي التحدي عند',
       'trueOption': 'صح',
       'falseOption': 'خطأ',
       'noChallengeYet': 'لم يبدأ التحدي بعد.',
@@ -68,6 +78,9 @@ class AppLocalizations {
       'retry': 'إعادة المحاولة',
       'roomLobby': 'لوبي الغرفة',
       'multiplayerHomeSubtitle': 'اختر طريقة اللعب الجماعي',
+      'createRoomSubtitle': 'كوّن غرفة خاصة وادعُ أصدقاءك.',
+      'joinRoomSubtitle': 'اكتب كود الغرفة وابدأ اللعب فورًا.',
+      'legacyModeSubtitle': 'الحفاظ على تجربة اللعب الفردية الحالية.',
       'gameInProgress': 'اللعبة قيد التقدم',
       'teamLabel': 'الفريق',
       'points': 'نقطة',
@@ -119,6 +132,16 @@ class AppLocalizations {
       'codeRequired': 'Please enter the room code.',
       'invalidRoomCode': 'Room code must be 5 or 6 uppercase characters.',
       'waitingPlayers': 'Waiting for the other players...',
+      'stateWaiting': 'Waiting',
+      'stateStarting': 'Starting',
+      'statePlaying': 'Playing',
+      'stateAnswering': 'Collecting answers',
+      'stateReviewing': 'Reviewing answers',
+      'stateRoundResults': 'Round results',
+      'stateGameResults': 'Final results',
+      'statePaused': 'Paused',
+      'stateFinished': 'Finished',
+      'challengeEndsAt': 'Challenge ends at',
       'trueOption': 'True',
       'falseOption': 'False',
       'noChallengeYet': 'The challenge has not started yet.',
@@ -127,6 +150,9 @@ class AppLocalizations {
       'retry': 'Retry',
       'roomLobby': 'Room lobby',
       'multiplayerHomeSubtitle': 'Choose how to play together',
+      'createRoomSubtitle': 'Create a private room and invite your friends.',
+      'joinRoomSubtitle': 'Enter the room code and start playing right away.',
+      'legacyModeSubtitle': 'Keep the current solo play experience available.',
       'gameInProgress': 'Game in progress',
       'teamLabel': 'Team',
       'points': 'points',
@@ -183,6 +209,16 @@ class AppLocalizations {
   String get codeRequired => _value('codeRequired');
   String get invalidRoomCode => _value('invalidRoomCode');
   String get waitingPlayers => _value('waitingPlayers');
+  String get stateWaiting => _value('stateWaiting');
+  String get stateStarting => _value('stateStarting');
+  String get statePlaying => _value('statePlaying');
+  String get stateAnswering => _value('stateAnswering');
+  String get stateReviewing => _value('stateReviewing');
+  String get stateRoundResults => _value('stateRoundResults');
+  String get stateGameResults => _value('stateGameResults');
+  String get statePaused => _value('statePaused');
+  String get stateFinished => _value('stateFinished');
+  String get challengeEndsAt => _value('challengeEndsAt');
   String get trueOption => _value('trueOption');
   String get falseOption => _value('falseOption');
   String get noChallengeYet => _value('noChallengeYet');
@@ -191,6 +227,9 @@ class AppLocalizations {
   String get retry => _value('retry');
   String get roomLobby => _value('roomLobby');
   String get multiplayerHomeSubtitle => _value('multiplayerHomeSubtitle');
+  String get createRoomSubtitle => _value('createRoomSubtitle');
+  String get joinRoomSubtitle => _value('joinRoomSubtitle');
+  String get legacyModeSubtitle => _value('legacyModeSubtitle');
   String get gameInProgress => _value('gameInProgress');
   String get teamLabel => _value('teamLabel');
   String get points => _value('points');

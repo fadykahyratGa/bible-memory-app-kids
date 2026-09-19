@@ -13,7 +13,7 @@ import 'package:bible_memory_app_kids/features/rooms/presentation/lobby_screen.d
 import 'package:bible_memory_app_kids/ui/screens/settings_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final session = ref.read(sessionControllerProvider);
+  final session = ref.watch(sessionControllerProvider);
   return GoRouter(
     initialLocation: '/',
     refreshListenable: session,

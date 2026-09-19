@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -72,10 +73,10 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
                     children: [
                       Text(l10n.currentChallenge, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                       const SizedBox(height: 8),
-                      Text(game?.state.name ?? MultiplayerGameState.waiting.name),
+                       Text(_stateLabel(l10n, game?.state ?? MultiplayerGameState.waiting)),
                       if (game?.challengeEndsAt != null) ...[
                         const SizedBox(height: 4),
-                        Text(game!.challengeEndsAt!.toLocal().toString()),
+                         Text('${l10n.challengeEndsAt}: ${DateFormat.Hm(Localizations.localeOf(context).languageCode).format(game!.challengeEndsAt!.toLocal())}'),
                       ],
                     ],
                   ),
@@ -183,5 +184,28 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
         setState(() => _submitting = false);
       }
     }
+  }
+}
+
+String _stateLabel(AppLocalizations l10n, MultiplayerGameState state) {
+  switch (state) {
+    case MultiplayerGameState.waiting:
+      return l10n.stateWaiting;
+    case MultiplayerGameState.starting:
+      return l10n.stateStarting;
+    case MultiplayerGameState.playing:
+      return l10n.statePlaying;
+    case MultiplayerGameState.answering:
+      return l10n.stateAnswering;
+    case MultiplayerGameState.reviewing:
+      return l10n.stateReviewing;
+    case MultiplayerGameState.roundResults:
+      return l10n.stateRoundResults;
+    case MultiplayerGameState.gameResults:
+      return l10n.stateGameResults;
+    case MultiplayerGameState.paused:
+      return l10n.statePaused;
+    case MultiplayerGameState.finished:
+      return l10n.stateFinished;
   }
 }

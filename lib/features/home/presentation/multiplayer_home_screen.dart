@@ -57,21 +57,21 @@ class MultiplayerHomeScreen extends ConsumerWidget {
           _ActionCard(
             icon: Icons.add_circle_outline,
             title: l10n.createRoom,
-            subtitle: 'كوّن غرفة خاصة وادعُ أصدقاءك.',
+            subtitle: l10n.createRoomSubtitle,
             onTap: () => context.push('/room/create'),
           ),
           const SizedBox(height: 12),
           _ActionCard(
             icon: Icons.login,
             title: l10n.joinRoom,
-            subtitle: 'اكتب كود الغرفة وابدأ اللعب فورًا.',
+            subtitle: l10n.joinRoomSubtitle,
             onTap: () => context.push('/room/join'),
           ),
           const SizedBox(height: 12),
           _ActionCard(
             icon: Icons.auto_awesome,
             title: l10n.legacyMode,
-            subtitle: 'الحفاظ على تجربة اللعب الفردية الحالية.',
+            subtitle: l10n.legacyModeSubtitle,
             onTap: () {
               Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const legacy.HomeScreen()));
             },

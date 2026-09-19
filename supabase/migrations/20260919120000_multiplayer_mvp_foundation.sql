@@ -242,7 +242,7 @@ with check (auth.uid() = id);
 
 create policy "rooms_select_members"
 on public.rooms for select
-using (public.is_room_member(id) or host_user_id = auth.uid() or status = 'waiting');
+using (public.is_room_member(id) or host_user_id = auth.uid());
 
 create policy "room_players_select_members"
 on public.room_players for select
@@ -283,9 +283,18 @@ using (
   )
 );
 
-create policy "player_answers_select_members"
+create policy "player_answers_select_scoped"
 on public.player_answers for select
-using (public.is_room_member(room_id));
+using (
+  user_id = auth.uid()
+  or exists (
+    select 1
+    from public.games g
+    where g.id = player_answers.game_id
+      and g.state in ('reviewing', 'round_results', 'game_results', 'finished')
+      and public.is_room_member(player_answers.room_id)
+  )
+);
 
 create policy "score_events_select_members"
 on public.score_events for select
@@ -318,6 +327,43 @@ create policy "settings_own"
 on public.settings for all
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
+
+create or replace function public.find_room_by_code(p_room_code text)
+returns public.rooms
+language sql
+security definer
+set search_path = public
+as $$
+  select *
+  from public.rooms
+  where code = upper(trim(p_room_code))
+  limit 1;
+$$;
+
+create or replace function public.get_current_challenge(p_room_id uuid)
+returns table (
+  id uuid,
+  round_id uuid,
+  challenge_order integer,
+  type text,
+  prompt text,
+  options jsonb,
+  correct_answer text,
+  metadata jsonb,
+  points integer
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select gc.id, gc.round_id, gc.challenge_order, gc.type, gc.prompt, gc.options, gc.correct_answer, gc.metadata, gc.points
+  from public.games g
+  join public.game_rounds gr on gr.game_id = g.id and gr.round_order = g.current_round_order
+  join public.game_challenges gc on gc.round_id = gr.id and gc.challenge_order = g.current_challenge_order
+  where g.room_id = p_room_id
+  order by g.created_at desc
+  limit 1;
+$$;
 
 create or replace function public.generate_room_code(code_length integer default 6)
 returns text
@@ -506,9 +552,7 @@ begin
   resolved_name := public.ensure_profile_name(p_display_name);
 
   select * into target_room
-  from public.rooms
-  where code = upper(trim(p_room_code))
-  limit 1;
+  from public.find_room_by_code(p_room_code);
 
   if target_room.id is null then
     raise exception 'ROOM_NOT_FOUND';
@@ -815,3 +859,4 @@ grant execute on function public.submit_answer(uuid, uuid, text) to authenticate
 grant execute on function public.advance_challenge(uuid) to authenticated;
 grant execute on function public.assign_room_team(uuid, uuid, uuid) to authenticated;
 grant execute on function public.auto_assign_teams(uuid) to authenticated;
+grant execute on function public.get_current_challenge(uuid) to authenticated;
