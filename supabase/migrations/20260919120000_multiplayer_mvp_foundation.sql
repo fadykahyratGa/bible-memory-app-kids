@@ -242,7 +242,7 @@ with check (auth.uid() = id);
 
 create policy "rooms_select_members"
 on public.rooms for select
-using (public.is_room_member(id) or host_user_id = auth.uid());
+using (public.is_room_member(id) or host_user_id = auth.uid() or status = 'waiting');
 
 create policy "room_players_select_members"
 on public.room_players for select
@@ -545,6 +545,8 @@ begin
     display_name = excluded.display_name,
     avatar_id = excluded.avatar_id,
     team_id = coalesce(public.room_players.team_id, excluded.team_id),
+    is_host = false,
+    is_judge = false,
     left_at = null;
 
   return query select target_room.id, target_room.code;
@@ -559,10 +561,16 @@ set search_path = public
 as $$
 declare
   next_host uuid;
+  current_judge uuid;
+  current_judge_mode text;
 begin
   update public.room_players
   set left_at = now(), is_host = false, is_judge = false
   where room_id = p_room_id and user_id = auth.uid();
+
+  select judge_user_id, judge_mode into current_judge, current_judge_mode
+  from public.rooms
+  where id = p_room_id;
 
   if exists (select 1 from public.rooms where id = p_room_id and host_user_id = auth.uid()) then
     select user_id into next_host
@@ -578,7 +586,42 @@ begin
 
     if next_host is not null then
       update public.room_players
-      set is_host = true
+      set is_host = true,
+          is_judge = case when current_judge_mode = 'host' then true else is_judge end
+      where room_id = p_room_id and user_id = next_host;
+
+      update public.rooms
+      set judge_user_id = case
+            when current_judge_mode = 'host' then next_host
+            when current_judge_mode = 'dedicated' and current_judge = auth.uid() then next_host
+            else judge_user_id
+          end
+      where id = p_room_id;
+
+      if current_judge_mode = 'dedicated' and current_judge = auth.uid() then
+        update public.room_players
+        set is_judge = true
+        where room_id = p_room_id and user_id = next_host;
+      end if;
+    else
+      update public.rooms
+      set judge_user_id = null
+      where id = p_room_id;
+    end if;
+  elsif current_judge_mode = 'dedicated' and current_judge = auth.uid() then
+    select user_id into next_host
+    from public.room_players
+    where room_id = p_room_id and left_at is null
+    order by joined_at asc
+    limit 1;
+
+    update public.rooms
+    set judge_user_id = next_host
+    where id = p_room_id;
+
+    if next_host is not null then
+      update public.room_players
+      set is_judge = true
       where room_id = p_room_id and user_id = next_host;
     end if;
   end if;

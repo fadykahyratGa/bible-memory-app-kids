@@ -42,9 +42,20 @@ class GameRepository {
   }
 
   Stream<GameChallenge?> observeCurrentChallenge(String roomId) async* {
+    String? lastKey;
+    GameChallenge? lastChallenge;
+
     await for (final game in observeGame(roomId)) {
       if (game == null) {
+        lastKey = null;
+        lastChallenge = null;
         yield null;
+        continue;
+      }
+
+      final currentKey = '${game.id}:${game.currentRoundOrder}:${game.currentChallengeOrder}';
+      if (currentKey == lastKey) {
+        yield lastChallenge;
         continue;
       }
 
@@ -55,6 +66,8 @@ class GameRepository {
           .eq('round_order', game.currentRoundOrder)
           .limit(1);
       if (rounds is! List || rounds.isEmpty) {
+        lastKey = currentKey;
+        lastChallenge = null;
         yield null;
         continue;
       }
@@ -67,11 +80,15 @@ class GameRepository {
           .eq('challenge_order', game.currentChallengeOrder)
           .limit(1);
       if (challenges is! List || challenges.isEmpty) {
+        lastKey = currentKey;
+        lastChallenge = null;
         yield null;
         continue;
       }
 
-      yield GameChallenge.fromMap(Map<String, dynamic>.from(challenges.first as Map));
+      lastKey = currentKey;
+      lastChallenge = GameChallenge.fromMap(Map<String, dynamic>.from(challenges.first as Map));
+      yield lastChallenge;
     }
   }
 }

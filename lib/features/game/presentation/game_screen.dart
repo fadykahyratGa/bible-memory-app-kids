@@ -27,6 +27,18 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(currentChallengeProvider(widget.roomId), (previous, next) {
+      final previousId = previous?.valueOrNull?.id;
+      final nextId = next.valueOrNull?.id;
+      if (nextId != null && nextId != previousId && _selectedAnswer != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _selectedAnswer = null);
+          }
+        });
+      }
+    });
+
     ref.listen(activeGameProvider(widget.roomId), (previous, next) {
       next.whenData((game) {
         if (game == null) {
@@ -159,6 +171,7 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
     try {
       await ref.read(gameRepositoryProvider).submitAnswer(roomId: widget.roomId, challengeId: challengeId, answer: answer);
       if (mounted) {
+        setState(() => _selectedAnswer = null);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.answerSubmitted)));
       }
     } catch (error) {

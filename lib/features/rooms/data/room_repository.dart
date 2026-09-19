@@ -70,7 +70,7 @@ class RoomRepository {
   }
 
   Future<RoomMembership?> findActiveMembership(String userId) async {
-    final membershipRows = await _client
+    final membershipRows = await _clientOrThrow
         .from('room_players')
         .select('room_id, left_at, joined_at')
         .eq('user_id', userId)

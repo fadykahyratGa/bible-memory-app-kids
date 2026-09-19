@@ -56,8 +56,8 @@ class ResultsScreen extends ConsumerWidget {
                 label: l10n.returnHome,
                 onPressed: () async {
                   await ref.read(roomRepositoryProvider).leaveRoom(roomId);
-                  ref.read(sessionControllerProvider).clearRestoreLocation();
                   await ref.read(sessionControllerProvider).refreshProfileAndMembership();
+                  ref.read(sessionControllerProvider).clearRestoreLocation();
                   if (context.mounted) {
                     context.go('/home');
                   }
