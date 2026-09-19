@@ -480,6 +480,14 @@ begin
     raise exception 'TEAM_NOT_FOUND';
   end if;
 
+  if not exists (
+    select 1
+    from public.room_players
+    where room_id = p_room_id and user_id = p_user_id and left_at is null
+  ) then
+    raise exception 'PLAYER_NOT_FOUND';
+  end if;
+
   update public.room_players
   set team_id = p_team_id
   where room_id = p_room_id and user_id = p_user_id and left_at is null;
@@ -515,7 +523,7 @@ begin
     new_room_id,
     new_code,
     auth.uid(),
-    case when p_judge_mode = 'dedicated' then auth.uid() else null end,
+    case when p_judge_mode = 'host' then auth.uid() else null end,
     p_game_mode,
     p_judge_mode,
     case when p_game_mode = 'teams' then p_team_count else null end,
@@ -523,7 +531,7 @@ begin
   );
 
   insert into public.room_players (room_id, user_id, display_name, avatar_id, is_host, is_judge)
-  select new_room_id, auth.uid(), p.display_name, p.avatar_id, true, p_judge_mode in ('host', 'dedicated')
+  select new_room_id, auth.uid(), p.display_name, p.avatar_id, true, p_judge_mode = 'host'
   from public.profiles p
   where p.id = auth.uid();
 
@@ -614,6 +622,14 @@ declare
   current_judge uuid;
   current_judge_mode text;
 begin
+  if not exists (
+    select 1
+    from public.room_players
+    where room_id = p_room_id and user_id = auth.uid() and left_at is null
+  ) then
+    raise exception 'ROOM_NOT_FOUND';
+  end if;
+
   update public.room_players
   set left_at = now(), is_host = false, is_judge = false
   where room_id = p_room_id and user_id = auth.uid();

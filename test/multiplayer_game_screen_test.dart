@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:bible_memory_app_kids/features/auth/data/auth_repository.dart';
 import 'package:bible_memory_app_kids/features/auth/providers/auth_providers.dart';
@@ -90,6 +91,96 @@ void main() {
     expect(find.text('results-screen'), findsOneWidget);
   });
 
+
+  testWidgets('shows advance button only for host and triggers repository call', (tester) async {
+    final fakeSession = _FakeSessionController(currentUserId: 'host-1');
+    final fakeGameRepository = _FakeGameRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionControllerProvider.overrideWith((ref) => fakeSession),
+          gameRepositoryProvider.overrideWithValue(fakeGameRepository),
+          roomProvider('room-1').overrideWith((ref) => Stream.value(const Room(
+                id: 'room-1',
+                code: 'ABCDE',
+                hostUserId: 'host-1',
+                gameMode: RoomGameMode.individual,
+                judgeMode: RoomJudgeMode.none,
+                status: RoomStatus.playing,
+                isPrivate: true,
+              ))),
+          roomPlayersProvider('room-1').overrideWith((ref) => Stream.value(const [])),
+          activeGameProvider('room-1').overrideWith((ref) => Stream.value(const GameSession(
+                id: 'game-1',
+                roomId: 'room-1',
+                state: MultiplayerGameState.playing,
+                currentRoundOrder: 1,
+                currentChallengeOrder: 1,
+              ))),
+          currentChallengeProvider('room-1').overrideWith((ref) => Stream.value(null)),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const MultiplayerGameScreen(roomId: 'room-1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    expect(find.text('التحدي التالي'), findsOneWidget);
+    await tester.tap(find.text('التحدي التالي'));
+    await tester.pump();
+    expect(fakeGameRepository.advancedRoomId, 'room-1');
+
+    final nonHostSession = _FakeSessionController(currentUserId: 'guest-1');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionControllerProvider.overrideWith((ref) => nonHostSession),
+          gameRepositoryProvider.overrideWithValue(fakeGameRepository),
+          roomProvider('room-1').overrideWith((ref) => Stream.value(const Room(
+                id: 'room-1',
+                code: 'ABCDE',
+                hostUserId: 'host-1',
+                gameMode: RoomGameMode.individual,
+                judgeMode: RoomJudgeMode.none,
+                status: RoomStatus.playing,
+                isPrivate: true,
+              ))),
+          roomPlayersProvider('room-1').overrideWith((ref) => Stream.value(const [])),
+          activeGameProvider('room-1').overrideWith((ref) => Stream.value(const GameSession(
+                id: 'game-1',
+                roomId: 'room-1',
+                state: MultiplayerGameState.playing,
+                currentRoundOrder: 1,
+                currentChallengeOrder: 1,
+              ))),
+          currentChallengeProvider('room-1').overrideWith((ref) => Stream.value(null)),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const MultiplayerGameScreen(roomId: 'room-1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    expect(find.text('التحدي التالي'), findsNothing);
+  });
+
   testWidgets('submits canonical true-false answers in English locale', (tester) async {
     final fakeSession = _FakeSessionController();
     final fakeGameRepository = _FakeGameRepository();
@@ -152,27 +243,46 @@ void main() {
 }
 
 class _FakeSessionController extends AppSessionController {
-  _FakeSessionController()
+  _FakeSessionController({this.currentUserId})
       : super(
           authRepository: AuthRepository(null),
           profileRepository: ProfileRepository(null),
           roomRepository: RoomRepository(null),
         );
 
+  final String? currentUserId;
+
   @override
   Future<void> bootstrap() async {}
 
   @override
   bool get isLoading => false;
+
+  @override
+  User? get user => currentUserId == null
+      ? null
+      : User.fromJson(<String, dynamic>{
+          'id': currentUserId,
+          'app_metadata': <String, dynamic>{},
+          'user_metadata': <String, dynamic>{},
+          'aud': 'authenticated',
+          'created_at': '2024-01-01T00:00:00Z',
+        });
 }
 
 class _FakeGameRepository extends GameRepository {
   _FakeGameRepository() : super(null);
 
   String? submittedAnswer;
+  String? advancedRoomId;
 
   @override
   Future<void> submitAnswer({required String roomId, required String challengeId, required String answer}) async {
     submittedAnswer = answer;
+  }
+
+  @override
+  Future<void> advanceChallenge(String roomId) async {
+    advancedRoomId = roomId;
   }
 }

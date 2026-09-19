@@ -108,7 +108,7 @@ class GameChallenge {
       prompt: map['prompt'] as String? ?? '',
       correctAnswer: map['correct_answer'] as String? ?? '',
       points: map['points'] as int? ?? 0,
-      options: rawOptions is List ? rawOptions.cast<String>() : const <String>[],
+      options: rawOptions is List ? rawOptions.map((item) => item.toString()).toList() : const <String>[],
       metadata: map['metadata'] is Map ? Map<String, dynamic>.from(map['metadata'] as Map) : <String, dynamic>{},
     );
   }

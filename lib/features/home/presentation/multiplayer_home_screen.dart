@@ -125,7 +125,7 @@ class _ActionCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+              const Icon(Icons.arrow_back_rounded, size: 18),
             ],
           ),
         ),

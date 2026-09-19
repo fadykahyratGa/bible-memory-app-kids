@@ -7,7 +7,9 @@ class RoomCodeHelper {
   static final RegExp _pattern = RegExp(r'^[A-Z2-9]{5,6}$');
 
   static String generate({int length = 6, Random? random}) {
-    assert(length == 5 || length == 6, 'Room code length must be 5 or 6');
+    if (length != 5 && length != 6) {
+      throw ArgumentError.value(length, 'length', 'Room code length must be 5 or 6');
+    }
     final source = random ?? Random.secure();
     return List<String>.generate(length, (_) => alphabet[source.nextInt(alphabet.length)]).join();
   }
