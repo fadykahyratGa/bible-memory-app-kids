@@ -25,6 +25,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (session.error != null) {
         return location == '/' ? null : '/';
       }
+      if (session.user == null) {
+        return location == '/' ? null : '/';
+      }
       if (session.needsProfile) {
         return location == '/profile-setup' ? null : '/profile-setup';
       }

@@ -329,14 +329,14 @@ using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
 create or replace function public.find_room_by_code(p_room_code text)
-returns public.rooms
+returns table (id uuid, code text, game_mode text, status text)
 language sql
 security definer
 set search_path = public
 as $$
-  select *
+  select rooms.id, rooms.code, rooms.game_mode, rooms.status
   from public.rooms
-  where code = upper(trim(p_room_code))
+  where rooms.code = upper(trim(p_room_code))
   limit 1;
 $$;
 
@@ -348,7 +348,6 @@ returns table (
   type text,
   prompt text,
   options jsonb,
-  correct_answer text,
   metadata jsonb,
   points integer
 )
@@ -356,11 +355,18 @@ language sql
 security definer
 set search_path = public
 as $$
-  select gc.id, gc.round_id, gc.challenge_order, gc.type, gc.prompt, gc.options, gc.correct_answer, gc.metadata, gc.points
+  select gc.id, gc.round_id, gc.challenge_order, gc.type, gc.prompt, gc.options, gc.metadata, gc.points
   from public.games g
   join public.game_rounds gr on gr.game_id = g.id and gr.round_order = g.current_round_order
   join public.game_challenges gc on gc.round_id = gr.id and gc.challenge_order = g.current_challenge_order
   where g.room_id = p_room_id
+    and exists (
+      select 1
+      from public.room_players rp
+      where rp.room_id = p_room_id
+        and rp.user_id = auth.uid()
+        and rp.left_at is null
+    )
   order by g.created_at desc
   limit 1;
 $$;
@@ -540,7 +546,7 @@ security definer
 set search_path = public
 as $$
 declare
-  target_room public.rooms%rowtype;
+  target_room record;
   resolved_name text;
   assigned_team_id uuid;
 begin
@@ -850,6 +856,8 @@ begin
   end if;
 end;
 $$;
+
+revoke all on function public.find_room_by_code(text) from public, anon, authenticated;
 
 grant execute on function public.create_room(text, text, integer, boolean) to authenticated;
 grant execute on function public.join_room(text, text) to authenticated;

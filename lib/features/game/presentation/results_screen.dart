@@ -55,11 +55,17 @@ class ResultsScreen extends ConsumerWidget {
               PrimaryButton(
                 label: l10n.returnHome,
                 onPressed: () async {
-                  await ref.read(roomRepositoryProvider).leaveRoom(roomId);
-                  await ref.read(sessionControllerProvider).refreshProfileAndMembership();
-                  ref.read(sessionControllerProvider).clearRestoreLocation();
-                  if (context.mounted) {
-                    context.go('/home');
+                  try {
+                    await ref.read(roomRepositoryProvider).leaveRoom(roomId);
+                    await ref.read(sessionControllerProvider).refreshProfileAndMembership();
+                    ref.read(sessionControllerProvider).clearRestoreLocation();
+                    if (context.mounted) {
+                      context.go('/home');
+                    }
+                  } catch (error) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppErrorMapper.map(error).userMessage)));
+                    }
                   }
                 },
               ),

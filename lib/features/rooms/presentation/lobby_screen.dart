@@ -15,30 +15,47 @@ import 'package:bible_memory_app_kids/features/shared/presentation/background_sc
 import 'package:bible_memory_app_kids/ui/widgets/primary_button.dart';
 import 'package:bible_memory_app_kids/ui/widgets/rounded_panel.dart';
 
-class LobbyScreen extends ConsumerWidget {
+class LobbyScreen extends ConsumerStatefulWidget {
   const LobbyScreen({super.key, required this.roomId});
 
   final String roomId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(activeGameProvider(roomId), (previous, next) {
+  ConsumerState<LobbyScreen> createState() => _LobbyScreenState();
+}
+
+class _LobbyScreenState extends ConsumerState<LobbyScreen> {
+  late final ProviderSubscription<AsyncValue<GameSession?>> _gameSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _gameSubscription = ref.listenManual(activeGameProvider(widget.roomId), (previous, next) {
       next.whenData((game) {
         if (game == null) {
           return;
         }
         if (game.state == MultiplayerGameState.gameResults || game.state == MultiplayerGameState.finished) {
-          context.go('/room/$roomId/results');
+          context.go('/room/${widget.roomId}/results');
         } else if (game.state != MultiplayerGameState.waiting) {
-          context.go('/room/$roomId/game');
+          context.go('/room/${widget.roomId}/game');
         }
       });
     });
+  }
 
+  @override
+  void dispose() {
+    _gameSubscription.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final roomAsync = ref.watch(roomProvider(roomId));
-    final playersAsync = ref.watch(roomPlayersProvider(roomId));
-    final teamsAsync = ref.watch(roomTeamsProvider(roomId));
+    final roomAsync = ref.watch(roomProvider(widget.roomId));
+    final playersAsync = ref.watch(roomPlayersProvider(widget.roomId));
+    final teamsAsync = ref.watch(roomTeamsProvider(widget.roomId));
     final currentUserId = ref.watch(sessionControllerProvider).user?.id;
     final teams = teamsAsync.valueOrNull ?? const <RoomTeam>[];
 
@@ -130,7 +147,7 @@ class LobbyScreen extends ConsumerWidget {
                   label: l10n.startGame,
                   onPressed: () async {
                     try {
-                      await ref.read(gameRepositoryProvider).startGame(roomId);
+                      await ref.read(gameRepositoryProvider).startGame(widget.roomId);
                     } catch (error) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppErrorMapper.map(error).userMessage)));
@@ -142,7 +159,7 @@ class LobbyScreen extends ConsumerWidget {
               OutlinedButton(
                 onPressed: () async {
                   try {
-                    await ref.read(roomRepositoryProvider).leaveRoom(roomId);
+                    await ref.read(roomRepositoryProvider).leaveRoom(widget.roomId);
                     await ref.read(sessionControllerProvider).refreshProfileAndMembership();
                     if (context.mounted) {
                       context.go('/home');

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import 'package:bible_memory_app_kids/core/errors/error_mapper.dart';
 import 'package:bible_memory_app_kids/core/localization/app_localizations.dart';
@@ -25,22 +25,20 @@ class MultiplayerGameScreen extends ConsumerStatefulWidget {
 class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
   String? _selectedAnswer;
   bool _submitting = false;
+  late final ProviderSubscription<AsyncValue<GameChallenge?>> _challengeSubscription;
+  late final ProviderSubscription<AsyncValue<GameSession?>> _gameSubscription;
 
   @override
-  Widget build(BuildContext context) {
-    ref.listen(currentChallengeProvider(widget.roomId), (previous, next) {
+  void initState() {
+    super.initState();
+    _challengeSubscription = ref.listenManual(currentChallengeProvider(widget.roomId), (previous, next) {
       final previousId = previous?.valueOrNull?.id;
       final nextId = next.valueOrNull?.id;
-      if (nextId != null && nextId != previousId && _selectedAnswer != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _selectedAnswer = null);
-          }
-        });
+      if (nextId != null && nextId != previousId && _selectedAnswer != null && mounted) {
+        setState(() => _selectedAnswer = null);
       }
     });
-
-    ref.listen(activeGameProvider(widget.roomId), (previous, next) {
+    _gameSubscription = ref.listenManual(activeGameProvider(widget.roomId), (previous, next) {
       next.whenData((game) {
         if (game == null) {
           return;
@@ -50,7 +48,17 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
         }
       });
     });
+  }
 
+  @override
+  void dispose() {
+    _challengeSubscription.close();
+    _gameSubscription.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final roomAsync = ref.watch(roomProvider(widget.roomId));
     final playersAsync = ref.watch(roomPlayersProvider(widget.roomId));
@@ -73,10 +81,10 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
                     children: [
                       Text(l10n.currentChallenge, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                       const SizedBox(height: 8),
-                       Text(_stateLabel(l10n, game?.state ?? MultiplayerGameState.waiting)),
+                      Text(_stateLabel(l10n, game?.state ?? MultiplayerGameState.waiting)),
                       if (game?.challengeEndsAt != null) ...[
                         const SizedBox(height: 4),
-                         Text('${l10n.challengeEndsAt}: ${DateFormat.Hm(Localizations.localeOf(context).languageCode).format(game!.challengeEndsAt!.toLocal())}'),
+                        Text('${l10n.challengeEndsAt}: ${DateFormat.Hm(Localizations.localeOf(context).languageCode).format(game!.challengeEndsAt!.toLocal())}'),
                       ],
                     ],
                   ),
@@ -90,22 +98,20 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
                   if (challenge == null) {
                     return RoundedPanel(child: Text(l10n.noChallengeYet));
                   }
-                  final options = challenge.type == ChallengeType.trueFalse
-                      ? <String>[l10n.trueOption, l10n.falseOption]
-                      : challenge.options;
+                  final answerChoices = _answerChoices(challenge, l10n);
                   return RoundedPanel(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(challenge.prompt, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 16),
-                        for (final option in options)
+                        for (final choice in answerChoices)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: ChoiceChip(
-                              label: Text(option),
-                              selected: _selectedAnswer == option,
-                              onSelected: (_) => setState(() => _selectedAnswer = option),
+                              label: Text(choice.label),
+                              selected: _selectedAnswer == choice.value,
+                              onSelected: (_) => setState(() => _selectedAnswer = choice.value),
                             ),
                           ),
                         const SizedBox(height: 12),
@@ -185,6 +191,26 @@ class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
       }
     }
   }
+}
+
+class _AnswerChoice {
+  const _AnswerChoice({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+List<_AnswerChoice> _answerChoices(GameChallenge challenge, AppLocalizations l10n) {
+  if (challenge.type != ChallengeType.trueFalse) {
+    return challenge.options.map((option) => _AnswerChoice(label: option, value: option)).toList();
+  }
+
+  final trueValue = challenge.options.isNotEmpty ? challenge.options.first : 'صح';
+  final falseValue = challenge.options.length > 1 ? challenge.options[1] : 'خطأ';
+  return <_AnswerChoice>[
+    _AnswerChoice(label: l10n.trueOption, value: trueValue),
+    _AnswerChoice(label: l10n.falseOption, value: falseValue),
+  ];
 }
 
 String _stateLabel(AppLocalizations l10n, MultiplayerGameState state) {
