@@ -21,7 +21,7 @@ create table if not exists public.profiles (
 create table if not exists public.rooms (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
-  host_user_id uuid not null references auth.users(id) on delete restrict,
+  host_user_id uuid references auth.users(id) on delete restrict,
   judge_user_id uuid references auth.users(id) on delete set null,
   game_mode text not null check (game_mode in ('individual', 'teams')),
   judge_mode text not null check (judge_mode in ('none', 'host', 'dedicated')),
@@ -623,14 +623,15 @@ begin
   where id = p_room_id;
 
   if exists (select 1 from public.rooms where id = p_room_id and host_user_id = auth.uid()) then
-    select user_id into next_host
-    from public.room_players
-    where room_id = p_room_id and left_at is null
-    order by joined_at asc
+    select rp.user_id into next_host
+    from public.room_players rp
+    join public.rooms r on r.id = rp.room_id
+    where rp.room_id = p_room_id and rp.left_at is null
+    order by (rp.user_id = r.host_user_id) desc, rp.joined_at asc
     limit 1;
 
     update public.rooms
-    set host_user_id = coalesce(next_host, host_user_id),
+    set host_user_id = next_host,
         status = case when next_host is null then 'finished' else status end
     where id = p_room_id;
 
@@ -659,10 +660,11 @@ begin
       where id = p_room_id;
     end if;
   elsif current_judge_mode = 'dedicated' and current_judge = auth.uid() then
-    select user_id into next_host
-    from public.room_players
-    where room_id = p_room_id and left_at is null
-    order by joined_at asc
+    select rp.user_id into next_host
+    from public.room_players rp
+    join public.rooms r on r.id = rp.room_id
+    where rp.room_id = p_room_id and rp.left_at is null
+    order by (rp.user_id = r.host_user_id) desc, rp.joined_at asc
     limit 1;
 
     update public.rooms
@@ -765,6 +767,14 @@ begin
       and challenge_record.challenge_order = active_game.current_challenge_order
   ) then
     raise exception 'CHALLENGE_NOT_ACTIVE';
+  end if;
+
+  if active_game.state not in ('playing', 'answering') then
+    raise exception 'CHALLENGE_CLOSED';
+  end if;
+
+  if active_game.current_challenge_ends_at is not null and now() > active_game.current_challenge_ends_at then
+    raise exception 'CHALLENGE_CLOSED';
   end if;
 
   answer_is_correct := trim(p_answer_text) = challenge_record.correct_answer;

@@ -57,6 +57,9 @@ class ResultsScreen extends ConsumerWidget {
                 onPressed: () async {
                   try {
                     await ref.read(roomRepositoryProvider).leaveRoom(roomId);
+                  } catch (_) {}
+
+                  try {
                     await ref.read(sessionControllerProvider).refreshProfileAndMembership();
                     ref.read(sessionControllerProvider).clearRestoreLocation();
                     if (context.mounted) {

@@ -56,7 +56,6 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
                   items: [
                     DropdownMenuItem(value: RoomJudgeMode.none, child: Text(l10n.judgeNone)),
                     DropdownMenuItem(value: RoomJudgeMode.host, child: Text(l10n.judgeHost)),
-                    DropdownMenuItem(value: RoomJudgeMode.dedicated, child: Text(l10n.judgeDedicated)),
                   ],
                   onChanged: (value) => setState(() => _judgeMode = value ?? RoomJudgeMode.none),
                 ),
