@@ -1,0 +1,174 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:bible_memory_app_kids/core/errors/error_mapper.dart';
+import 'package:bible_memory_app_kids/core/localization/app_localizations.dart';
+import 'package:bible_memory_app_kids/features/auth/providers/auth_providers.dart';
+import 'package:bible_memory_app_kids/features/game/domain/game_models.dart';
+import 'package:bible_memory_app_kids/features/game/providers/game_providers.dart';
+import 'package:bible_memory_app_kids/features/rooms/providers/room_providers.dart';
+import 'package:bible_memory_app_kids/features/shared/presentation/background_scaffold.dart';
+import 'package:bible_memory_app_kids/ui/widgets/primary_button.dart';
+import 'package:bible_memory_app_kids/ui/widgets/rounded_panel.dart';
+
+class MultiplayerGameScreen extends ConsumerStatefulWidget {
+  const MultiplayerGameScreen({super.key, required this.roomId});
+
+  final String roomId;
+
+  @override
+  ConsumerState<MultiplayerGameScreen> createState() => _MultiplayerGameScreenState();
+}
+
+class _MultiplayerGameScreenState extends ConsumerState<MultiplayerGameScreen> {
+  String? _selectedAnswer;
+  bool _submitting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(activeGameProvider(widget.roomId), (previous, next) {
+      next.whenData((game) {
+        if (game == null) {
+          return;
+        }
+        if (game.state == MultiplayerGameState.gameResults || game.state == MultiplayerGameState.finished) {
+          context.go('/room/${widget.roomId}/results');
+        }
+      });
+    });
+
+    final l10n = AppLocalizations.of(context);
+    final roomAsync = ref.watch(roomProvider(widget.roomId));
+    final playersAsync = ref.watch(roomPlayersProvider(widget.roomId));
+    final gameAsync = ref.watch(activeGameProvider(widget.roomId));
+    final challengeAsync = ref.watch(currentChallengeProvider(widget.roomId));
+    final currentUserId = ref.watch(sessionControllerProvider).user?.id;
+
+    return BackgroundScaffold(
+      appBar: AppBar(title: Text(l10n.gameInProgress)),
+      child: roomAsync.when(
+        data: (room) {
+          final isHost = room.hostUserId == currentUserId;
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              gameAsync.when(
+                data: (game) => RoundedPanel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.currentChallenge, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 8),
+                      Text(game?.state.name ?? MultiplayerGameState.waiting.name),
+                      if (game?.challengeEndsAt != null) ...[
+                        const SizedBox(height: 4),
+                        Text(game!.challengeEndsAt!.toLocal().toString()),
+                      ],
+                    ],
+                  ),
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Text(AppErrorMapper.map(error).userMessage),
+              ),
+              const SizedBox(height: 12),
+              challengeAsync.when(
+                data: (challenge) {
+                  if (challenge == null) {
+                    return RoundedPanel(child: Text(l10n.noChallengeYet));
+                  }
+                  final options = challenge.type == ChallengeType.trueFalse
+                      ? <String>[l10n.trueOption, l10n.falseOption]
+                      : challenge.options;
+                  return RoundedPanel(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(challenge.prompt, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 16),
+                        for (final option in options)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: ChoiceChip(
+                              label: Text(option),
+                              selected: _selectedAnswer == option,
+                              onSelected: (_) => setState(() => _selectedAnswer = option),
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        PrimaryButton(
+                          label: l10n.submitAnswer,
+                          onPressed: _selectedAnswer == null || _submitting
+                              ? null
+                              : () => _submitAnswer(challenge.id, _selectedAnswer!),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Text(AppErrorMapper.map(error).userMessage),
+              ),
+              const SizedBox(height: 12),
+              playersAsync.when(
+                data: (players) => RoundedPanel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.scoreboard, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 8),
+                      for (final player in [...players]..sort((a, b) => b.score.compareTo(a.score)))
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(player.displayName),
+                          trailing: Text('${player.score} ${l10n.points}'),
+                        ),
+                    ],
+                  ),
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Text(AppErrorMapper.map(error).userMessage),
+              ),
+              if (isHost) ...[
+                const SizedBox(height: 16),
+                PrimaryButton(
+                  label: l10n.advanceChallenge,
+                  onPressed: () async {
+                    try {
+                      await ref.read(gameRepositoryProvider).advanceChallenge(widget.roomId);
+                    } catch (error) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppErrorMapper.map(error).userMessage)));
+                      }
+                    }
+                  },
+                ),
+              ],
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(child: Text(AppErrorMapper.map(error).userMessage)),
+      ),
+    );
+  }
+
+  Future<void> _submitAnswer(String challengeId, String answer) async {
+    final l10n = AppLocalizations.of(context);
+    setState(() => _submitting = true);
+    try {
+      await ref.read(gameRepositoryProvider).submitAnswer(roomId: widget.roomId, challengeId: challengeId, answer: answer);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.answerSubmitted)));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppErrorMapper.map(error).userMessage)));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
+}
